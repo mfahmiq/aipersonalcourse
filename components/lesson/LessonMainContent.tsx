@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
 import { YouTubePlayer } from "@/components/ui/youtube-player"
 import { FlashCard } from "./FlashCard"
+import Link from "next/link"
 
 interface LessonMainContentProps {
   currentLesson: any
@@ -103,6 +104,22 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
               </>
             )}
           </Button>
+          {/* Tombol Edit hanya jika id valid */}
+          {currentLesson?.id ? (
+            <Link href={`/dashboard/course/${course?.courseId || course?.id}/learn/${currentLesson.id}/edit`}>
+              <Button size="icon" variant="outline" className="ml-2" aria-label="Edit Lesson">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m2-2l-6 6m2-2l6-6" />
+                </svg>
+              </Button>
+            </Link>
+          ) : (
+            <Button size="icon" variant="outline" className="ml-2" aria-label="Edit Lesson" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m2-2l-6 6m2-2l6-6" />
+              </svg>
+            </Button>
+          )}
         </div>
       </div>
       {/* Video Player */}

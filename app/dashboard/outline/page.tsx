@@ -14,6 +14,10 @@ import { useRouter } from "next/navigation"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { v4 as uuidv4 } from 'uuid'
 import { generateOutline } from "@/lib/utils/gemini"
+import { Portal } from "@/components/Portal"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase"
+import Cookies from "js-cookie"
 
 export default function OutlinePage() {
   const router = useRouter()
@@ -32,6 +36,7 @@ export default function OutlinePage() {
   })
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const userId = Cookies.get("user_id")
 
   const cleanCorruptOutlines = (outlines: any[]) => {
     return outlines.filter((outline) => {
@@ -48,13 +53,18 @@ export default function OutlinePage() {
 
   useEffect(() => {
     setIsMounted(true)
-    const savedOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
-    const cleaned = cleanCorruptOutlines(savedOutlines)
-    if (cleaned.length !== savedOutlines.length) {
-      localStorage.setItem("courseOutlines", JSON.stringify(cleaned))
+    const fetchOutlines = async () => {
+      if (!userId) return;
+      const { data, error } = await supabase
+        .from("outlines")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) console.error("Outlines fetch error:", error);
+      setOutlines(data || [])
     }
-    setOutlines(cleaned)
-  }, [])
+    fetchOutlines()
+  }, [userId])
 
   if (!isMounted) return null
 
@@ -62,7 +72,6 @@ export default function OutlinePage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Replace the existing generateOutlineContent function
   const generateOutlineContent = async (formData: any) => {
     try {
       const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
@@ -80,52 +89,56 @@ export default function OutlinePage() {
     }
   }
 
-
   const handleGenerateOutline = async () => {
     if (!formData.title || !formData.topic) {
       alert("Please fill in at least the title and topic fields")
       return
     }
-
     setIsGenerating(true)
-
     try {
-        const newOutline = await generateOutlineContent(formData)
-
-        // Save original form data along with the generated outline
-        const outlineWithFormData = {
-          ...newOutline,
-          originalFormData: formData, // Store the original form data
-        };
-
-        // Save to localStorage
-        const existingOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
-        const updatedOutlines = [...existingOutlines, outlineWithFormData]
-        localStorage.setItem("courseOutlines", JSON.stringify(updatedOutlines))
-
-        // Update state
-        setOutlines(updatedOutlines)
-
-        // Reset form
-        setFormData({
-          title: "",
-          topic: "",
-          degree: "",
-          difficulty: "",
-          duration: "",
-          language: "",
-          video: "",
-          chapters: "",
-          goals: "",
-        })
-
-        // Navigate to the new outline
-        router.push(`/dashboard/outline/${newOutline.id}`)
-
+      const newOutline = await generateOutlineContent(formData)
+      // Simpan ke Supabase
+      const { error: insertError } = await supabase.from("outlines").insert({
+        user_id: userId,
+        title: newOutline.title,
+        description: newOutline.description,
+        topic: newOutline.topic,
+        level: newOutline.level,
+        duration: newOutline.duration,
+        language: newOutline.language,
+        modules: newOutline.modules,
+        lessons: newOutline.lessons,
+        overview: newOutline.overview,
+        learning_goal: newOutline.learning_goal,
+      })
+      if (insertError) throw insertError
+      // Refresh outlines
+      const { data, error } = await supabase
+        .from("outlines")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      if (error) console.error("Outlines fetch error:", error);
+      setOutlines(data || [])
+      // Reset form
+      setFormData({
+        title: "",
+        topic: "",
+        degree: "",
+        difficulty: "",
+        duration: "",
+        language: "",
+        video: "",
+        chapters: "",
+        goals: "",
+      })
+      // Navigate to the new outline (ambil id dari insert jika perlu)
+      // router.push(`/dashboard/outline/${newOutline.id}`)
     } catch (error) {
-        // Error handling is done within generateOutlineContent
+      // Error handling
+      console.error("Generate outline error:", error);
     } finally {
-        setIsGenerating(false)
+      setIsGenerating(false)
     }
   }
 
@@ -133,7 +146,6 @@ export default function OutlinePage() {
     if (confirm("Are you sure you want to delete this outline?")) {
       const updatedOutlines = outlines.filter((outline) => outline.id !== id)
       setOutlines(updatedOutlines)
-      localStorage.setItem("courseOutlines", JSON.stringify(updatedOutlines))
     }
   }
 
@@ -202,95 +214,97 @@ export default function OutlinePage() {
 
       {/* Generate Course Outline Modal */}
       {showGenerateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 font-sans">
-          <div className="bg-white border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
-            <button
-              type="button"
-              className="absolute top-3 right-3 text-2xl text-gray-400 hover:text-gray-700 transition-colors"
-              onClick={() => setShowGenerateModal(false)}
-              aria-label="Close"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <Card className="border-0 shadow-none">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-primary" />
-            Generate Course Outline
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Describe what you want to learn and our AI will create a comprehensive course outline for you.
-          </p>
-        </CardHeader>
-              <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                    <Label htmlFor="title" className="flex items-center gap-2"><GraduationCap className="w-5 h-5 text-emerald-500" /> Title</Label>
-                    <Input id="title" placeholder="e.g. Introduction to Web Development" value={formData.title} onChange={e => handleInputChange("title", e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                    <Label htmlFor="degree" className="flex items-center gap-2"><Layers className="w-5 h-5 text-emerald-500" /> Degree/Field</Label>
-                    <Input id="degree" placeholder="e.g. Computer Science" value={formData.degree} onChange={e => handleInputChange("degree", e.target.value)} className="mt-1" />
+        <Portal>
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50 font-sans">
+            <div className="bg-white border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
+              <button
+                type="button"
+                className="absolute top-3 right-3 text-2xl text-blue-600 hover:text-blue-700 transition-colors"
+                onClick={() => setShowGenerateModal(false)}
+                aria-label="Close"
+              >
+                <X className="w-6 h-6 text-blue-600" />
+              </button>
+              <Card className="border-0 shadow-none">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    Generate Course Outline
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Describe what you want to learn and our AI will create a comprehensive course outline for you.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="title" className="flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600" /> Title</Label>
+                      <Input id="title" placeholder="e.g. Introduction to Web Development" value={formData.title} onChange={e => handleInputChange("title", e.target.value)} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label htmlFor="degree" className="flex items-center gap-2"><Layers className="w-5 h-5 text-blue-600" /> Degree/Field</Label>
+                      <Input id="degree" placeholder="e.g. Computer Science" value={formData.degree} onChange={e => handleInputChange("degree", e.target.value)} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label htmlFor="difficulty" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> Difficulty Level</Label>
+                      <Input id="difficulty" placeholder="e.g. Beginner" value={formData.difficulty} onChange={e => handleInputChange("difficulty", e.target.value)} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label htmlFor="duration" className="flex items-center gap-2"><Clock className="w-5 h-5 text-blue-600" /> Estimated Duration</Label>
+                      <Input id="duration" placeholder="e.g. 4 weeks" value={formData.duration} onChange={e => handleInputChange("duration", e.target.value)} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label htmlFor="language" className="flex items-center gap-2"><Globe className="w-5 h-5 text-blue-600" /> Language</Label>
+                      <Input id="language" placeholder="e.g. English" value={formData.language} onChange={e => handleInputChange("language", e.target.value)} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label htmlFor="chapters" className="flex items-center gap-2"><ListOrdered className="w-5 h-5 text-blue-600" /> No. of Chapters</Label>
+                      <Input
+                        id="chapters"
+                        placeholder="5"
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.chapters}
+                        onChange={(e) => handleInputChange("chapters", e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Label htmlFor="topic" className="flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" /> Topic Description</Label>
+                    <Textarea
+                      id="topic"
+                      placeholder="Describe the topic in detail"
+                      value={formData.topic}
+                      onChange={e => handleInputChange("topic", e.target.value)}
+                      className="mt-1 min-h-[100px] resize-y"
+                      required
+                    />
+                  </div>
+                  <div className="mt-4">
+                    <Label htmlFor="goals" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> Learning Goals</Label>
+                    <Textarea
+                      id="goals"
+                      placeholder="Describe what you want to achieve and any specific topics you want to cover... (one goal per line)"
+                      value={formData.goals}
+                      onChange={(e) => handleInputChange("goals", e.target.value)}
+                      className="mt-1 min-h-[80px]"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleGenerateOutline}
+                    className="bg-foreground hover:bg-foreground/90 text-background mt-6"
+                    disabled={!formData.title || !formData.topic}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Outline
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
-              <div>
-                    <Label htmlFor="difficulty" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-emerald-500" /> Difficulty Level</Label>
-                    <Input id="difficulty" placeholder="e.g. Beginner" value={formData.difficulty} onChange={e => handleInputChange("difficulty", e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                    <Label htmlFor="duration" className="flex items-center gap-2"><Clock className="w-5 h-5 text-emerald-500" /> Estimated Duration</Label>
-                    <Input id="duration" placeholder="e.g. 4 weeks" value={formData.duration} onChange={e => handleInputChange("duration", e.target.value)} className="mt-1" />
-            </div>
-              <div>
-                    <Label htmlFor="language" className="flex items-center gap-2"><Globe className="w-5 h-5 text-emerald-500" /> Language</Label>
-                    <Input id="language" placeholder="e.g. English" value={formData.language} onChange={e => handleInputChange("language", e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                    <Label htmlFor="chapters" className="flex items-center gap-2"><ListOrdered className="w-5 h-5 text-emerald-500" /> No. of Chapters</Label>
-                <Input
-                  id="chapters"
-                  placeholder="5"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={formData.chapters}
-                  onChange={(e) => handleInputChange("chapters", e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-                <div className="mt-4">
-                  <Label htmlFor="topic" className="flex items-center gap-2"><FileText className="w-5 h-5 text-emerald-500" /> Topic Description</Label>
-                  <Textarea
-                    id="topic"
-                    placeholder="Describe the topic in detail"
-                    value={formData.topic}
-                    onChange={e => handleInputChange("topic", e.target.value)}
-                    className="mt-1 min-h-[100px] resize-y"
-                    required
-                  />
-                </div>
-                <div className="mt-4">
-                  <Label htmlFor="goals" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-emerald-500" /> Learning Goals</Label>
-              <Textarea
-                id="goals"
-                placeholder="Describe what you want to achieve and any specific topics you want to cover... (one goal per line)"
-                value={formData.goals}
-                onChange={(e) => handleInputChange("goals", e.target.value)}
-                className="mt-1 min-h-[80px]"
-              />
-            </div>
-          <Button
-            onClick={handleGenerateOutline}
-                  className="bg-foreground hover:bg-foreground/90 text-background mt-6"
-            disabled={!formData.title || !formData.topic}
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Generate Outline
-          </Button>
-        </CardContent>
-      </Card>
           </div>
-        </div>
+        </Portal>
       )}
 
       {/* Your Outlines */}

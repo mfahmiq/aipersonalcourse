@@ -18,6 +18,11 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { generateOutline, generateLessonContent } from "@/lib/utils/gemini"
 import { LESSON_CONTENT_PROMPT } from "@/lib/utils/prompts"
+import { useOverlay } from "@/components/OverlayContext"
+import { Portal } from "@/components/Portal"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase"
+import Cookies from "js-cookie"
 
 // Tambahkan fungsi delay
 function delay(ms: number) {
@@ -124,30 +129,35 @@ function fixUrlFormat(url: string): string | null {
 }
 
 export default function ViewOutlinePage() {
-  const { id } = useParams()
+  const params = useParams()
+  const id = params.id as string
   const router = useRouter()
   const [outline, setOutline] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [isCreatingCourse, setIsCreatingCourse] = useState(false)
-  const [generationProgress, setGenerationProgress] = useState({module: 0, lesson: 0, totalModules: 0, totalLessons: 0})
-  const [isGenerating, setIsGenerating] = useState(false)
   const [showRegenerateForm, setShowRegenerateForm] = useState(false)
   const [regenerateForm, setRegenerateForm] = useState<any>(null)
   const [regenerateSuccess, setRegenerateSuccess] = useState(false)
+  const { isGenerating, setIsGenerating, generationProgress, setGenerationProgress } = useOverlay();
+  const supabase = createClientComponentClient();
+  const userId = Cookies.get("user_id");
 
   useEffect(() => {
-    // Load outline from localStorage
-    const savedOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
-    const foundOutline = savedOutlines.find((o: any) => o.id === id)
-
-    if (foundOutline) {
-      setOutline(foundOutline)
-    } else {
-      // Outline not found, redirect to outlines page
-      router.push("/dashboard/outline")
+    const fetchOutline = async () => {
+      const { data, error } = await supabase
+        .from("outlines")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (data) {
+        setOutline(data)
+      } else {
+        router.push("/dashboard/outline")
+      }
     }
-  }, [id, router])
+    fetchOutline()
+  }, [id, router, supabase])
 
   const handleEditClick = () => {
     router.push(`/dashboard/outline/${id}/edit`)
@@ -158,8 +168,13 @@ export default function ViewOutlinePage() {
       alert("Outline data not found.")
       return
     }
-    setIsGenerating(true)
-    setGenerationProgress({module: 0, lesson: 0, totalModules: Array.isArray(outline.modulesList) ? outline.modulesList.length : 0, totalLessons: Array.isArray(outline.modulesList) ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0})
+    // Hitung totalModules dan totalLessons sebelum mulai generate
+    const totalModules = Array.isArray(outline.modulesList) ? outline.modulesList.length : 0;
+    const totalLessons = Array.isArray(outline.modulesList)
+      ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0)
+      : 0;
+    setGenerationProgress({ module: 0, lesson: 0, totalModules, totalLessons });
+    setIsGenerating(true);
     try {
       // Struktur awal course
       const courseId = uuidv4()
@@ -181,7 +196,13 @@ export default function ViewOutlinePage() {
         }
         for (let l = 0; l < (Array.isArray(module.lessons) ? module.lessons.length : 0); l++) {
           const lesson = module.lessons[l]
-          setGenerationProgress(p => ({...p, module: m+1, lesson: lessonCount+1}))
+          setGenerationProgress({
+            ...generationProgress,
+            module: m + 1,
+            lesson: lessonCount + 1,
+            totalModules,
+            totalLessons
+          })
           // Generate konten lesson
           const lessonContent = await generateLessonContentWrapper({outlineData: outline, module, lesson})
           newModule.lessons.push({
@@ -198,12 +219,11 @@ export default function ViewOutlinePage() {
       savedCourses.push(course)
       localStorage.setItem("generatedCourses", JSON.stringify(savedCourses))
       // Setelah selesai, redirect ke halaman daftar course
-      router.push(`/dashboard/course`)
-    } catch (error) {
-      console.error("Failed to create course:", error)
-      alert("Failed to create course. Please try again.")
-    } finally {
       setIsGenerating(false)
+      router.push(`/dashboard/course`)
+    } catch (e) {
+      setIsGenerating(false)
+      alert("Terjadi kesalahan saat generate course.")
     }
   }
 
@@ -648,147 +668,115 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
 
       {/* Regenerate Outline Modal */}
       {showRegenerateForm && regenerateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 font-sans">
-          <div className="bg-white border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
-            <button
-              type="button"
-              className="absolute top-3 right-3 text-2xl text-gray-400 hover:text-gray-700 transition-colors"
-              onClick={() => setShowRegenerateForm(false)}
-              aria-label="Close"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <form
-              onSubmit={e => {
-                e.preventDefault()
-                setShowRegenerateForm(false)
-                handleRegenerateOutline(regenerateForm)
-              }}
-            >
-              <div className="border-0 shadow-none">
-                <div className="px-8 pt-8">
-                  <h2 className="text-2xl font-bold mb-4 text-center tracking-tight">Edit Outline Input</h2>
-                </div>
-                <div className="px-8 pb-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="title" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><GraduationCap className="w-5 h-5 text-emerald-500" /> Title</label>
-                      <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base"
-                        value={regenerateForm.title || ""}
-                        onChange={e => setRegenerateForm((f: any) => ({ ...f, title: e.target.value }))}
+        <Portal>
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50 font-sans">
+            <div className="bg-white border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
+              <button
+                type="button"
+                className="absolute top-3 right-3 text-2xl text-blue-600 hover:text-blue-700 transition-colors"
+                onClick={() => setShowRegenerateForm(false)}
+                aria-label="Close"
+              >
+                <X className="w-6 h-6 text-blue-600" />
+              </button>
+              <form
+                onSubmit={e => {
+                  e.preventDefault()
+                  setShowRegenerateForm(false)
+                  handleRegenerateOutline(regenerateForm)
+                }}
+              >
+                <div className="border-0 shadow-none">
+                  <div className="px-8 pt-8">
+                    <h2 className="text-2xl font-bold mb-4 text-center tracking-tight">Edit Outline Input</h2>
+                  </div>
+                  <div className="px-8 pb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="title" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><GraduationCap className="w-5 h-5 text-blue-600" /> Title</label>
+                        <input
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          value={regenerateForm.title || ""}
+                          onChange={e => setRegenerateForm((f: any) => ({ ...f, title: e.target.value }))}
+                          required
+                          placeholder="e.g. Introduction to Web Development"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Layers className="w-5 h-5 text-blue-600" /> Degree/Field</label>
+                        <input
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          value={regenerateForm.degree || ""}
+                          onChange={e => setRegenerateForm((f: any) => ({ ...f, degree: e.target.value }))}
+                          placeholder="e.g. Computer Science"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="difficulty" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Difficulty Level</label>
+                        <input
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          value={regenerateForm.difficulty || ""}
+                          onChange={e => setRegenerateForm((f: any) => ({ ...f, difficulty: e.target.value }))}
+                          placeholder="e.g. Beginner"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Clock className="w-5 h-5 text-blue-600" /> Estimated Duration</label>
+                        <input
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          value={regenerateForm.duration || ""}
+                          onChange={e => setRegenerateForm((f: any) => ({ ...f, duration: e.target.value }))}
+                          placeholder="e.g. 4 weeks"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="language" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Globe className="w-5 h-5 text-blue-600" /> Language</label>
+                        <input
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          value={regenerateForm.language || ""}
+                          onChange={e => setRegenerateForm((f: any) => ({ ...f, language: e.target.value }))}
+                          placeholder="e.g. English"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> No. of Chapters</label>
+                        <input
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          value={regenerateForm.chapters || ""}
+                          onChange={e => setRegenerateForm((f: any) => ({ ...f, chapters: e.target.value }))}
+                          placeholder="5"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <label htmlFor="topic" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><FileText className="w-5 h-5 text-blue-600" /> Topic Description</label>
+                      <textarea
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[100px] mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base resize-y"
+                        value={regenerateForm.topic || ""}
+                        onChange={e => setRegenerateForm((f: any) => ({ ...f, topic: e.target.value }))}
                         required
-                        placeholder="e.g. Introduction to Web Development"
+                        placeholder="Describe the topic in detail"
                       />
                     </div>
-                    <div>
-                      <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Layers className="w-5 h-5 text-emerald-500" /> Degree/Field</label>
-                      <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base"
-                        value={regenerateForm.degree || ""}
-                        onChange={e => setRegenerateForm((f: any) => ({ ...f, degree: e.target.value }))}
-                        placeholder="e.g. Computer Science"
+                    <div className="mt-4">
+                      <label htmlFor="goals" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Learning Goals</label>
+                      <textarea
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[80px] mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                        value={regenerateForm.goals || ""}
+                        onChange={e => setRegenerateForm((f: any) => ({ ...f, goals: e.target.value }))}
+                        placeholder="Describe what you want to achieve and any specific topics you want to cover... (one goal per line)"
                       />
                     </div>
-                    <div>
-                      <label htmlFor="difficulty" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-emerald-500" /> Difficulty Level</label>
-                      <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base"
-                        value={regenerateForm.difficulty || ""}
-                        onChange={e => setRegenerateForm((f: any) => ({ ...f, difficulty: e.target.value }))}
-                        placeholder="e.g. Beginner"
-                      />
+                    <div className="flex gap-2 mt-6 justify-end">
+                      <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">Regenerate</button>
+                      <button type="button" className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors" onClick={() => setShowRegenerateForm(false)}>Cancel</button>
                     </div>
-                    <div>
-                      <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Clock className="w-5 h-5 text-emerald-500" /> Estimated Duration</label>
-                      <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base"
-                        value={regenerateForm.duration || ""}
-                        onChange={e => setRegenerateForm((f: any) => ({ ...f, duration: e.target.value }))}
-                        placeholder="e.g. 4 weeks"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="language" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Globe className="w-5 h-5 text-emerald-500" /> Language</label>
-                      <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base"
-                        value={regenerateForm.language || ""}
-                        onChange={e => setRegenerateForm((f: any) => ({ ...f, language: e.target.value }))}
-                        placeholder="e.g. English"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><ListOrdered className="w-5 h-5 text-emerald-500" /> No. of Chapters</label>
-                      <input
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base"
-                        value={regenerateForm.chapters || ""}
-                        onChange={e => setRegenerateForm((f: any) => ({ ...f, chapters: e.target.value }))}
-                        placeholder="5"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <label htmlFor="topic" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><FileText className="w-5 h-5 text-emerald-500" /> Topic Description</label>
-                    <textarea
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[100px] mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base resize-y"
-                      value={regenerateForm.topic || ""}
-                      onChange={e => setRegenerateForm((f: any) => ({ ...f, topic: e.target.value }))}
-                      required
-                      placeholder="Describe the topic in detail"
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <label htmlFor="goals" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-emerald-500" /> Learning Goals</label>
-                    <textarea
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[80px] mt-1 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-base"
-                      value={regenerateForm.goals || ""}
-                      onChange={e => setRegenerateForm((f: any) => ({ ...f, goals: e.target.value }))}
-                      placeholder="Describe what you want to achieve and any specific topics you want to cover... (one goal per line)"
-                    />
-                  </div>
-                  <div className="flex gap-2 mt-6 justify-end">
-                    <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors">Regenerate</button>
-                    <button type="button" className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition-colors" onClick={() => setShowRegenerateForm(false)}>Cancel</button>
                   </div>
                 </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isGenerating && (
-        <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-40 z-[100] flex flex-col items-center justify-center">
-          <div className="bg-card p-8 rounded-lg shadow-lg flex flex-col items-center max-w-md">
-            <div className="text-lg font-bold mb-2 text-foreground">Sedang generate lesson {generationProgress.lesson} dari {generationProgress.totalLessons}...</div>
-            <div className="w-64 mb-4">
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className="bg-primary h-2 rounded-full" style={{width: `${Math.round((generationProgress.lesson/generationProgress.totalLessons)*100)}%`}}></div>
-              </div>
-            </div>
-            <div className="text-muted-foreground text-sm text-center mb-4">
-              Mohon tunggu, proses ini bisa memakan waktu beberapa menit.
-            </div>
-            {/* Peringatan AI Hallucination */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 w-full">
-              <div className="flex items-start gap-3">
-                <div className="text-amber-600 mt-0.5">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="text-sm">
-                  <div className="font-medium text-amber-800 mb-1">Peringatan AI</div>
-                  <div className="text-amber-700">
-                    Course ini dibuat dengan AI menggunakan informasi web terkini untuk memastikan akurasi informasi. 
-                    Meskipun konten telah diverifikasi dari sumber terpercaya, 
-                    <strong> mohon periksa kembali konten yang dihasilkan untuk memastikan relevansi dengan kebutuhan Anda.</strong>
-                  </div>
-                </div>
-              </div>
+              </form>
             </div>
           </div>
-        </div>
+        </Portal>
       )}
 
       {isRegenerating && (

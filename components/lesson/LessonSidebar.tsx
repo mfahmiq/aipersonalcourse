@@ -62,7 +62,7 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                 <h3 className="font-medium text-foreground mb-2 break-words">{moduleTitle}</h3>
                 <ul className="space-y-2">
                   {moduleLessons.map((lesson) => (
-                    <li key={lesson.id}>
+                    <li key={`${lesson.moduleId || 'mod'}-${lesson.id}`}>
                       <Link
                         href={`/dashboard/course/${lesson.courseId || lesson.moduleId}/learn/${lesson.id}`}
                         className={cn(

@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { GraduationCap, Brain } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -25,7 +25,6 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const supabase = createClientComponentClient()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -50,25 +49,14 @@ export default function RegisterPage() {
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: `${formData.firstName} ${formData.lastName}`,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
       })
-
       if (error) throw error
-
-      if (data) {
-        setSuccess(true)
-        // Don't redirect immediately, show success message first
-        setTimeout(() => {
-          router.push("/auth/verify-email")
-        }, 2000)
-      }
+      setSuccess(true)
+      setTimeout(() => {
+        router.push("/login")
+      }, 2000)
     } catch (error: any) {
-      setError(error.message)
+      setError(error.message || JSON.stringify(error))
     } finally {
       setIsLoading(false)
     }

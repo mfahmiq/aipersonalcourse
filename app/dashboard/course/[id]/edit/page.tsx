@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, ChangeEvent } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+import Cookies from "js-cookie"
 
 interface CourseData {
   courseId?: string
@@ -27,11 +29,17 @@ export default function EditCoursePage() {
   const router = useRouter()
   const params = useParams()
   const courseId = params.id as string
-  
-  const [course, setCourse] = useState<CourseData | null>(null)
+  const userId = Cookies.get("user_id")
+
+  const [course, setCourse] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    level: string;
+    duration: string;
+  }>({
     title: "",
     description: "",
     level: "",
@@ -39,48 +47,48 @@ export default function EditCoursePage() {
   })
 
   useEffect(() => {
-    // Load course data from localStorage
-    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-    const foundCourse = generatedCourses.find((c: CourseData) => (c.courseId || c.id) === courseId)
-    
-    if (foundCourse) {
-      setCourse(foundCourse)
-      setFormData({
-        title: foundCourse.title || "",
-        description: foundCourse.description || "",
-        level: foundCourse.level || "Beginner",
-        duration: foundCourse.duration || "8 weeks"
-      })
-    } else {
-      // Course not found, redirect to course list
-      router.push("/dashboard/course")
+    const fetchCourse = async () => {
+      const { data, error } = await supabase
+        .from("courses")
+        .select("id, title, description, level, duration")
+        .eq("id", courseId)
+        .single();
+      if (error) console.error("Course fetch error:", error);
+      if (data) {
+        setCourse(data)
+        setFormData({
+          title: data.title || "",
+          description: data.description || "",
+          level: data.level || "Beginner",
+          duration: data.duration || "8 weeks"
+        })
+      } else {
+        // Course not found, redirect to course list
+        router.push("/dashboard/course")
+      }
+      setLoading(false)
     }
-    setLoading(false)
+    fetchCourse()
   }, [courseId, router])
 
   const handleSave = async () => {
     if (!course) return
-    
     setSaving(true)
-    
     try {
-      // Update course in localStorage
-      const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-      const updatedCourses = generatedCourses.map((c: CourseData) => {
-        if ((c.courseId || c.id) === courseId) {
-          return {
-            ...c,
-            title: formData.title,
-            description: formData.description,
-            level: formData.level,
-            duration: formData.duration
-          }
-        }
-        return c
-      })
-      
-      localStorage.setItem("generatedCourses", JSON.stringify(updatedCourses))
-      
+      // Update course in Supabase
+      const { error } = await supabase
+        .from("courses")
+        .update({
+          title: formData.title,
+          description: formData.description,
+          level: formData.level,
+          duration: formData.duration
+        })
+        .eq("id", courseId)
+      if (error) {
+        console.error("Course update error:", error);
+        throw error
+      }
       // Redirect back to course list
       router.push("/dashboard/course")
     } catch (error) {
@@ -137,7 +145,7 @@ export default function EditCoursePage() {
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
               placeholder="Enter course title"
             />
           </div>
@@ -147,7 +155,7 @@ export default function EditCoursePage() {
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               placeholder="Enter course description"
               rows={4}
             />
@@ -156,7 +164,7 @@ export default function EditCoursePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="level">Level</Label>
-              <Select value={formData.level} onValueChange={(value) => setFormData(prev => ({ ...prev, level: value }))}>
+              <Select value={formData.level} onValueChange={(value: string) => setFormData((prev) => ({ ...prev, level: value }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select level" />
                 </SelectTrigger>
@@ -173,7 +181,7 @@ export default function EditCoursePage() {
               <Input
                 id="duration"
                 value={formData.duration}
-                onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData((prev) => ({ ...prev, duration: e.target.value }))}
                 placeholder="e.g., 8 weeks"
               />
             </div>

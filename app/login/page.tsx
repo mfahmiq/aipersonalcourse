@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { GraduationCap, Brain } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,27 +19,25 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClientComponentClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-
-      if (error) throw error
-
-      if (data) {
-        router.push("/dashboard")
-        router.refresh()
+      if (error) {
+        setError("Email atau password salah")
+        setIsLoading(false)
+        return
       }
+      router.push("/dashboard")
+      router.refresh()
     } catch (error: any) {
-      setError(error.message)
+      setError(error.message || JSON.stringify(error))
     } finally {
       setIsLoading(false)
     }

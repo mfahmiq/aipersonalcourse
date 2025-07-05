@@ -15,186 +15,118 @@ import { ArrowLeft, Save, Trash2, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase"
+import Cookies from "js-cookie"
 
 export default function EditOutlinePage() {
   const router = useRouter()
-  const { id } = useParams()
-  const outlineId = Array.isArray(id) ? id[0] : id
-  const [isMounted, setIsMounted] = useState(false)
+  const params = useParams()
+  const outlineId = params.id as string
+  const userId = Cookies.get("user_id")
 
-  // State for form data
+  const [outline, setOutline] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     topic: "",
-    degree: "",
-    status: "",
     level: "",
     duration: "",
     language: "",
-    includeVideo: false,
+    modules: 0,
+    lessons: 0,
     overview: "",
-    learningGoals: [] as string[],
+    learning_goal: ""
   })
 
-  // State for modules and lessons
-  const [modules, setModules] = useState<
-    {
-      id: number
-      title: string
-      lessons: { id: string; title: string; duration: string }[]
-    }[]
-  >([])
-
-  // Load outline data
   useEffect(() => {
-    setIsMounted(true)
-    const savedOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
-    const outline = savedOutlines.find((o: any) => o.id === outlineId)
-
-    if (outline) {
-      setFormData({
-        title: outline.title || "",
-        description: outline.description || "",
-        topic: outline.topic || "",
-        degree: outline.degree || "",
-        status: outline.status || "Draft",
-        level: outline.level || "Intermediate",
-        duration: outline.duration || "",
-        language: outline.language || "english",
-        includeVideo: outline.includeVideo || false,
-        overview: outline.overview || "",
-        learningGoals: Array.isArray(outline.learningGoals) ? outline.learningGoals : [],
-      })
-      setModules(Array.isArray(outline.modulesList) ? outline.modulesList : [])
-    } else {
-      // Outline not found, redirect
-      router.push("/dashboard/outline")
+    const fetchOutline = async () => {
+      const { data, error } = await supabase
+        .from("outlines")
+        .select("*")
+        .eq("id", outlineId)
+        .single();
+      if (data) {
+        setOutline(data)
+        setFormData({
+          title: data.title || "",
+          description: data.description || "",
+          topic: data.topic || "",
+          level: data.level || "",
+          duration: data.duration || "",
+          language: data.language || "",
+          modules: data.modules || 0,
+          lessons: data.lessons || 0,
+          overview: data.overview || "",
+          learning_goal: data.learning_goal || ""
+        })
+      } else {
+        router.push("/dashboard/outline")
+      }
+      setLoading(false)
     }
+    fetchOutline()
   }, [outlineId, router])
+
+  const handleSave = async () => {
+    if (!outline) return
+    try {
+      const { error } = await supabase
+        .from("outlines")
+        .update({
+          title: formData.title,
+          description: formData.description,
+          topic: formData.topic,
+          level: formData.level,
+          duration: formData.duration,
+          language: formData.language,
+          modules: formData.modules,
+          lessons: formData.lessons,
+          overview: formData.overview,
+          learning_goal: formData.learning_goal
+        })
+        .eq("id", outlineId)
+      if (error) throw error
+      router.push(`/dashboard/outline/${outlineId}`)
+    } catch (error) {
+      alert("Failed to save outline. Please try again.")
+    }
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  if (!outline) {
+    return <div>Outline not found</div>
+  }
 
   // Handle input changes
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Handle learning goals changes
-  const handleLearningGoalChange = (index: number, value: string) => {
-    const updatedGoals = [...formData.learningGoals]
-    updatedGoals[index] = value
-    setFormData((prev) => ({ ...prev, learningGoals: updatedGoals }))
-  }
-
-  // Add new learning goal
-  const addLearningGoal = () => {
-    setFormData((prev) => ({ ...prev, learningGoals: [...prev.learningGoals, ""] }))
-  }
-
-  // Remove learning goal
-  const removeLearningGoal = (index: number) => {
-    const updatedGoals = formData.learningGoals.filter((_, i) => i !== index)
-    setFormData((prev) => ({ ...prev, learningGoals: updatedGoals }))
-  }
-
-  // Handle module title change
-  const handleModuleTitleChange = (moduleIndex: number, value: string) => {
-    const updatedModules = [...modules]
-    updatedModules[moduleIndex].title = value
-    setModules(updatedModules)
-  }
-
-  // Handle lesson changes
-  const handleLessonChange = (moduleIndex: number, lessonIndex: number, field: string, value: string) => {
-    const updatedModules = [...modules]
-    updatedModules[moduleIndex].lessons[lessonIndex][field as "title" | "duration"] = value
-    setModules(updatedModules)
-  }
-
-  // Add new lesson to a module
-  const addLesson = (moduleIndex: number) => {
-    const updatedModules = [...modules]
-    const moduleId = updatedModules[moduleIndex].id
-    const newLessonId = `${moduleId}.${Array.isArray(updatedModules[moduleIndex].lessons) ? updatedModules[moduleIndex].lessons.length + 1 : 1}`
-    updatedModules[moduleIndex].lessons.push({
-      id: newLessonId,
-      title: "",
-      duration: "15 min",
-    })
-    setModules(updatedModules)
-  }
-
-  // Remove lesson from a module
-  const removeLesson = (moduleIndex: number, lessonIndex: number) => {
-    const updatedModules = [...modules]
-    updatedModules[moduleIndex].lessons.splice(lessonIndex, 1)
-    // Update lesson IDs
-    updatedModules[moduleIndex].lessons = updatedModules[moduleIndex].lessons.map((lesson, idx) => ({
-      ...lesson,
-      id: `${updatedModules[moduleIndex].id}.${idx + 1}`,
-    }))
-    setModules(updatedModules)
-  }
-
-  // Add new module
-  const addModule = () => {
-    const newModuleId = Array.isArray(modules) && modules.length > 0 ? Math.max(...modules.map((m) => m.id)) + 1 : 1
-    setModules([
-      ...modules,
-      {
-        id: newModuleId,
-        title: "",
-        lessons: [
-          {
-            id: `${newModuleId}.1`,
-            title: "",
-            duration: "15 min",
-          },
-        ],
-      },
-    ])
-  }
-
-  // Remove module
-  const removeModule = (moduleIndex: number) => {
-    const updatedModules = modules.filter((_, i) => i !== moduleIndex)
-    setModules(updatedModules)
-  }
-
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isMounted) return
-
-    const savedOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
-    const existingOutline = savedOutlines.find((o: any) => o.id === outlineId)
+    if (!outline) return
 
     // Calculate updated stats
-    const totalLessons = Array.isArray(modules) ? modules.reduce((total, module) => total + (Array.isArray(module.lessons) ? module.lessons.length : 0), 0) : 0
-    const estimatedHours = `${totalLessons * 0.5}h`
+    const estimatedHours = `${formData.lessons * 0.5}h`
 
     const updatedOutline = {
       id: outlineId,
       ...formData,
-      modules: Array.isArray(modules) ? modules.length : 0,
-      lessons: totalLessons,
       estimatedHours,
-      modulesList: modules,
       updatedAt: new Date().toISOString(),
-      originalFormData: existingOutline?.originalFormData,
+      originalFormData: outline?.originalFormData,
     }
 
-    // Update in localStorage
-    const updatedOutlines = savedOutlines.map((outline: any) => (outline.id === outlineId ? updatedOutline : outline))
-    localStorage.setItem("courseOutlines", JSON.stringify(updatedOutlines))
-
-    // Show success message
-    alert("Outline updated successfully!")
-
-    // Navigate back to the outline view
-    router.push(`/dashboard/outline/${outlineId}`)
+    // Update in Supabase
+    handleSave()
   }
 
-  if (!isMounted) return null
+  if (!outline) return null
 
   return (
     <div className="space-y-8 bg-background text-foreground">
@@ -225,15 +157,6 @@ export default function EditOutlinePage() {
                   onChange={(e) => handleInputChange("title", e.target.value)}
                   className="bg-background text-foreground border-border dark:bg-background dark:text-foreground dark:border-border"
                   required
-                />
-              </div>
-              <div>
-                <Label htmlFor="degree">Degree/Field</Label>
-                <Input
-                  id="degree"
-                  value={formData.degree}
-                  onChange={(e) => handleInputChange("degree", e.target.value)}
-                  className="bg-background text-foreground border-border dark:bg-background dark:text-foreground dark:border-border"
                 />
               </div>
               <div>
@@ -271,7 +194,7 @@ export default function EditOutlinePage() {
                 <Label htmlFor="modules">No. of Chapters</Label>
                 <Input
                   id="modules"
-                  value={Array.isArray(modules) ? modules.length : 0}
+                  value={formData.modules}
                   readOnly
                   className="bg-background text-foreground border-border dark:bg-background dark:text-foreground dark:border-border"
                 />
@@ -280,7 +203,7 @@ export default function EditOutlinePage() {
                 <Label htmlFor="lessons">No. of Lessons</Label>
                 <Input
                   id="lessons"
-                  value={Array.isArray(modules) ? modules.reduce((total, m) => total + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0}
+                  value={formData.lessons}
                   readOnly
                   className="bg-background text-foreground border-border dark:bg-background dark:text-foreground dark:border-border"
                 />

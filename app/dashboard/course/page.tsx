@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BookOpen, Clock, Play, Search, Filter, Plus, Sparkles, Edit, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+import Cookies from "js-cookie"
 
 // Tambahkan tipe Course agar nextLessonId dikenali
 interface Course {
@@ -29,68 +31,71 @@ interface Course {
 }
 
 export default function CoursePage() {
-  const [courses, setCourses] = useState<Course[]>([])
+  const [courses, setCourses] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [filterLevel, setFilterLevel] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const router = useRouter();
 
-  // Load generated courses from localStorage
   useEffect(() => {
-    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-    const formattedGeneratedCourses = generatedCourses.map((course: any) => {
-      const courseId = course.courseId || course.id;
-      // Ambil progress user dari localStorage
-      const progressData = JSON.parse(localStorage.getItem(`course_progress_${courseId}`) || '{"completed": []}')
-      // Hitung total lessons
-      let totalLessons = 0;
-      let allLessonIds: string[] = [];
-      if (Array.isArray(course.modules)) {
-        course.modules.forEach((mod: any) => {
-          if (Array.isArray(mod.lessons)) {
-            totalLessons += mod.lessons.length;
-            allLessonIds.push(...mod.lessons.map((l: any) => l.id));
-          }
-        });
+    const fetchCourses = async () => {
+      // Ambil user session
+      const userId = Cookies.get("user_id");
+      if (!userId) return;
+
+      // Ambil outlines user
+      const { data: outlines, error: outlinesError } = await supabase.from("outlines").select("id").eq("user_id", userId);
+      if (outlinesError) {
+        console.error("Outlines fetch error:", outlinesError);
+        setCourses([]);
+        return;
       }
-      // Hitung completed lessons
-      const completedLessons = Array.isArray(progressData.completed) ? progressData.completed.length : 0;
-      // Hitung progress
-      const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-      // Cari lesson terakhir yang belum selesai
-      let nextLessonId = null;
-      if (allLessonIds.length > 0) {
-        nextLessonId = allLessonIds.find((id) => !progressData.completed?.includes(id)) || allLessonIds[0];
+      const outlineIds = outlines?.map((o: any) => o.id) || [];
+
+      // Ambil data kursus user
+      let coursesData: any[] = [];
+      let coursesError: any = null;
+      if (outlineIds.length > 0) {
+        const { data: cData, error: cError } = await supabase
+          .from("courses")
+          .select("id, title, description, level, duration, image_url, created_at, outline_id")
+          .in("outline_id", outlineIds);
+        coursesData = cData || [];
+        coursesError = cError;
+        if (coursesError) console.error("Courses fetch error:", coursesError);
       }
-      return {
-        id: courseId,
-        title: course.title,
-        description: course.description,
-        progress,
-        totalLessons,
-        completedLessons,
-        duration: course.duration,
-        level: course.level || "",
-        status: progress === 100 ? "Completed" : progress > 0 ? "In Progress" : "Not Started",
-        type: "generated",
-        image: "/placeholder.svg?height=200&width=300",
-        createdAt: course.createdAt,
-        nextLessonId,
-      }
-    })
-    setCourses(formattedGeneratedCourses)
+
+      // Ambil progress user untuk setiap course
+      const { data: progressData, error: progressError } = await supabase
+        .from("user_progress")
+        .select("course_id, progress_percentage, completed, lesson_id")
+        .eq("user_id", userId);
+      if (progressError) console.error("User progress fetch error:", progressError);
+
+      // Gabungkan data kursus dan progress
+      const formattedCourses = (coursesData || []).map((course: any) => {
+        const progress = progressData?.find((p: any) => p.course_id === course.id);
+        return {
+          ...course,
+          progress: progress?.progress_percentage ?? 0,
+          completedLessons: Array.isArray(progress?.completed) ? progress.completed.length : 0,
+          status: (progress?.progress_percentage ?? 0) === 100 ? "Completed" : (progress?.progress_percentage ?? 0) > 0 ? "In Progress" : "Not Started",
+          type: "generated",
+          nextLessonId: progress?.lesson_id || null,
+        }
+      })
+      setCourses(formattedCourses)
+    }
+    fetchCourses()
   }, [])
 
   // Handle course deletion
-  const handleDeleteCourse = (courseId: string, courseType: string) => {
+  const handleDeleteCourse = async (courseId: string, courseType: string) => {
     if (confirm("Are you sure you want to delete this course? This action cannot be undone.")) {
       if (courseType === "generated") {
-        // Remove from generated courses in localStorage
-        const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-        const updatedGeneratedCourses = generatedCourses.filter((course: any) => (course.courseId || course.id) !== courseId)
-        localStorage.setItem("generatedCourses", JSON.stringify(updatedGeneratedCourses))
+        // Hapus course dari Supabase
+        await supabase.from("courses").delete().eq("id", courseId)
       }
-      
       // Update local state
       setCourses(prevCourses => prevCourses.filter(course => {
         const realId = (course as any).courseId || course.id

@@ -1,4 +1,9 @@
+import { supabase } from "@/lib/supabase";
+import Cookies from "js-cookie";
+
 export default function SettingsPage() {
+  const userId = Cookies.get("user_id");
+
   return (
     <div className="space-y-8">
       <div>
