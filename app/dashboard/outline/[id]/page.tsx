@@ -16,6 +16,8 @@ import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { generateOutline, generateLessonContent } from "@/lib/utils/gemini"
+import { LESSON_CONTENT_PROMPT } from "@/lib/utils/prompts"
 
 // Tambahkan fungsi delay
 function delay(ms: number) {
@@ -40,100 +42,8 @@ function extractCodeBlocks(content: string): string[] {
 }
 
 // Fungsi generate konten per lesson
-async function generateLessonContent({
-  outlineData,
-  module,
-  lesson
-}: {
-  outlineData: any,
-  module: any,
-  lesson: any
-}) {
-  const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-001",
-    generationConfig: { maxOutputTokens: 8192 },
-  })
-
-  // PROMPT BARU: instruksikan AI untuk SELALU menyertakan contoh kode dalam format markdown code block jika applicable
-  const prompt = `Buatkan artikel lengkap dan komprehensif untuk lesson berikut:
-
-**INFORMASI COURSE:**
-- Judul Course: ${outlineData.title}
-- Deskripsi: ${outlineData.description}
-- Topik Utama: ${outlineData.topic}
-- Level: ${outlineData.level}
-- Durasi: ${outlineData.duration}
-- Bahasa: ${outlineData.language}
-- Tujuan Pembelajaran: ${outlineData.learningGoals?.join("; ")}
-
-**INFORMASI MODULE & LESSON:**
-- Module: ${module.title}
-- Lesson: ${lesson.title}
-- Durasi Lesson: ${lesson.duration}
-
-**PETUNJUK PENULISAN:**
-1. **Gunakan pengetahuan terkini** tentang topik lesson
-2. **Sertakan sitasi** pada setiap bagian konten dengan format [1], [2], [3], dst
-3. **Buat referensi lengkap** di akhir artikel dengan link sumber yang VALID
-4. **Pastikan akurasi** informasi berdasarkan sumber terpercaya
-5. **Jika applicable, SELALU sertakan contoh kode dalam format markdown code block (misal: \`\`\`javascript ... \`\`\`) pada bagian yang relevan. Jika tidak ada, tulis 'Tidak ada contoh kode.'**
-
-**STRUKTUR ARTIKEL YANG DIHARAPKAN:**
-1. **Pendahuluan** - Perkenalkan topik dan relevansinya [sertakan sitasi]
-2. **Konsep Dasar** - Jelaskan teori dan prinsip fundamental [sertakan sitasi]
-3. **Penjelasan Detail** - Uraikan setiap aspek dengan mendalam [sertakan sitasi]
-4. **Contoh Praktis** - Berikan contoh nyata dan studi kasus [sertakan sitasi]
-5. **Aplikasi** - Tunjukkan bagaimana konsep diterapkan [sertakan sitasi]
-6. **Best Practices** - Berikan tips dan praktik terbaik [sertakan sitasi]
-7. **Pitfalls & Solusi** - Jelaskan kesalahan umum dan cara menghindarinya [sertakan sitasi]
-8. **Ringkasan** - Rangkum poin-poin penting
-9. **Referensi** - Daftar lengkap sumber dengan link yang VALID
-
-**FORMAT OUTPUT:**
-- Gunakan Markdown dengan struktur yang rapi
-- Sertakan sitasi [1], [2], [3] di setiap bagian yang menggunakan sumber
-- Di akhir artikel, tambahkan section "Referensi" dengan format:
-  [1] Judul Artikel/Sumber - Penulis - URL (pastikan URL valid)
-  [2] Judul Artikel/Sumber - Penulis - URL (pastikan URL valid)
-  dst
-- **Jika ada contoh kode, SELALU gunakan markdown code block (misal: \`\`\`javascript ... \`\`\`).**
-
-**PENTING - VALIDASI LINK:**
-- Hanya gunakan URL yang benar dan dapat diakses
-- Pastikan format URL lengkap (https://domain.com/path)
-- Hindari URL yang tidak valid atau broken links
-- Gunakan sumber terpercaya seperti website resmi, jurnal, atau platform edukasi`
-
-  try {
-    const result = await model.generateContent({ 
-      contents: [{ 
-        role: "user", 
-        parts: [{ text: prompt }] 
-      }],
-      generationConfig: {
-        maxOutputTokens: 8192,
-        temperature: 0.7,
-      }
-    })
-    
-    let content = result.response.text().trim()
-    // Jika ada blok markdown, ambil isinya
-    const mdMatch = content.match(/```(?:md|markdown)?([\s\S]*?)```/)
-    if (mdMatch && mdMatch[1]) {
-      content = mdMatch[1].trim()
-    }
-    // Validasi dan perbaiki link referensi
-    content = await validateAndFixReferences(content)
-    return {
-      id: lesson.id,
-      title: lesson.title,
-      content,
-    }
-  } catch (error) {
-    console.error("Error generating lesson content:", error)
-    throw error
-  }
+async function generateLessonContentWrapper({ outlineData, module, lesson }: any) {
+  return generateLessonContent({ outlineData, module, lesson }, process.env.NEXT_PUBLIC_GEMINI_API_KEY!, validateAndFixReferences)
 }
 
 // Fungsi untuk validasi dan perbaikan referensi
@@ -249,7 +159,7 @@ export default function ViewOutlinePage() {
       return
     }
     setIsGenerating(true)
-    setGenerationProgress({module: 0, lesson: 0, totalModules: outline.modulesList.length, totalLessons: outline.modulesList.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0)})
+    setGenerationProgress({module: 0, lesson: 0, totalModules: Array.isArray(outline.modulesList) ? outline.modulesList.length : 0, totalLessons: Array.isArray(outline.modulesList) ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0})
     try {
       // Struktur awal course
       const courseId = uuidv4()
@@ -262,18 +172,18 @@ export default function ViewOutlinePage() {
         createdAt: new Date().toISOString()
       }
       let lessonCount = 0
-      for (let m = 0; m < outline.modulesList.length; m++) {
+      for (let m = 0; m < (Array.isArray(outline.modulesList) ? outline.modulesList.length : 0); m++) {
         const module = outline.modulesList[m]
         const newModule = {
           id: module.id,
           title: module.title,
           lessons: [] as any[]
         }
-        for (let l = 0; l < (module.lessons?.length || 0); l++) {
+        for (let l = 0; l < (Array.isArray(module.lessons) ? module.lessons.length : 0); l++) {
           const lesson = module.lessons[l]
           setGenerationProgress(p => ({...p, module: m+1, lesson: lessonCount+1}))
           // Generate konten lesson
-          const lessonContent = await generateLessonContent({outlineData: outline, module, lesson})
+          const lessonContent = await generateLessonContentWrapper({outlineData: outline, module, lesson})
           newModule.lessons.push({
             ...lessonContent
           })
@@ -348,97 +258,20 @@ export default function ViewOutlinePage() {
 
   const generateOutlineContent = async (formData: any) => {
     try {
-      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" })
-
-      const prompt = `Create a detailed course outline based on the following information:
-Title: ${formData.title}
-Topic: ${formData.topic}
-${formData.degree ? `Degree/Field: ${formData.degree}` : ""}
-${formData.difficulty ? `Difficulty Level: ${formData.difficulty}` : ""}
-${formData.duration ? `Estimated Duration: ${formData.duration}` : ""}
-${formData.language ? `Language: ${formData.language}` : ""}
-${formData.video === 'yes' ? "Include video content suggestions." : ""}
-${formData.chapters ? `Target Number of Chapters/Modules: ${formData.chapters}` : ""}
-${formData.goals ? `Specific Learning Goals:\n${formData.goals}` : ""}
-
-The output should be in a structured JSON format, suitable for a learning platform.
-Include the following fields:
-- id: A unique string identifier (use a timestamp or random string)
-- title: The course title
-- description: A brief course description
-- topic: The main topic
-- degree: The target degree/field (if provided)
-- level: Difficulty level (Beginner, Intermediate, Advanced)
-- duration: Estimated duration
-- language: Course language
-- includeVideo: boolean based on input
-- status: Initial status (e.g., "Draft")
-- modules: Total number of modules
-- lessons: Total number of lessons
-- estimatedHours: Estimated total study hours
-- createdAt: Timestamp of creation
-- modulesList: An array of module objects. Each module should have:
-    - id: Module number (e.g., 1, 2, ...)
-    - title: Module title
-    - lessons: An array of lesson objects. Each lesson should have:
-        - id: Lesson identifier (e.g., "1.1", "1.2", ...)
-        - title: Lesson title
-        - duration: Estimated lesson duration (e.g., "15 min", "30 min")
-- learningGoals: An array of learning goal strings.
-- overview: A general overview of the course.
-
-Ensure the JSON is valid and contains only the described structure. Do not include any introductory or concluding text outside the JSON object.`
-
-      const result = await model.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
-
-      console.log("Raw API Response (Outline):", text)
-
-      // Extract JSON from the response, handling various formats
-      let jsonString = text.trim()
-      
-      // Try to extract JSON from markdown code block
-      const jsonMatch = jsonString.match(/```(?:json)?\n([\s\S]*?)\n```/)
-      if (jsonMatch && jsonMatch[1]) {
-        jsonString = jsonMatch[1].trim()
-        console.log("Extracted JSON from markdown block (Outline):", jsonString)
-      } else {
-        // If no markdown block found, try to find JSON object directly
-        const jsonObjectMatch = jsonString.match(/\{[\s\S]*\}/)
-        if (jsonObjectMatch) {
-          jsonString = jsonObjectMatch[0]
-          console.log("Extracted JSON object (Outline):", jsonString)
-        } else {
-          console.warn("Could not find valid JSON in response (Outline):", text)
-          throw new Error("Invalid response format from API (Outline)")
-        }
+      const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
+      // Add missing fields if needed
+      if (!generatedOutline.id) {
+        generatedOutline.id = Date.now().toString()
       }
-
-      try {
-        const generatedOutline = JSON.parse(jsonString)
-        
-        // Add missing fields
-        if (!generatedOutline.id) {
-          generatedOutline.id = Date.now().toString()
-        }
-        if (!generatedOutline.createdAt) {
-          generatedOutline.createdAt = new Date().toISOString()
-        }
-        if (!generatedOutline.status) {
-          generatedOutline.status = "Draft" // Default status
-        }
-
-        return generatedOutline
-      } catch (error) {
-        console.error("Error parsing JSON (Outline):", error)
-        console.error("Raw JSON string (Outline):", jsonString)
-        throw new Error("Failed to parse outline content")
+      if (!generatedOutline.createdAt) {
+        generatedOutline.createdAt = new Date().toISOString()
       }
-    } catch (error) {
-      console.error("Error generating outline:", error)
-      throw error
+      if (!generatedOutline.status) {
+        generatedOutline.status = "Draft"
+      }
+      return generatedOutline
+    } catch (err) {
+      throw err
     }
   }
 
@@ -681,7 +514,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{outline.modules}</div>
+              <div className="text-2xl font-bold text-foreground">{Array.isArray(outline.modulesList) ? outline.modulesList.length : 0}</div>
               <p className="text-sm text-muted-foreground">Modules</p>
             </div>
           </CardContent>
@@ -693,7 +526,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{outline.lessons}</div>
+              <div className="text-2xl font-bold text-foreground">{Array.isArray(outline.modulesList) ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0}</div>
               <p className="text-sm text-muted-foreground">Lessons</p>
             </div>
           </CardContent>
@@ -705,7 +538,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{outline.estimatedHours}</div>
+              <div className="text-2xl font-bold text-foreground">{typeof outline.estimatedHours === "number" || typeof outline.estimatedHours === "string" ? outline.estimatedHours : "?"}</div>
               <p className="text-sm text-muted-foreground">Est. Duration</p>
             </div>
           </CardContent>
@@ -717,7 +550,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
               <Target className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{outline.learningGoals?.length || 0}</div>
+              <div className="text-2xl font-bold text-foreground">{Array.isArray(outline.learningGoals) ? outline.learningGoals.length : 0}</div>
               <p className="text-sm text-muted-foreground">Learning Goals</p>
             </div>
           </CardContent>
@@ -755,32 +588,36 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
               <p className="text-muted-foreground mb-6">Detailed breakdown of all modules and lessons</p>
 
               <div className="space-y-8">
-                {outline.modulesList?.map((module: any) => (
-                  <div key={module.id} className="space-y-4">
-                    <div className="bg-muted/50 text-muted-foreground px-3 py-1 rounded-md border border-border inline-block text-sm font-medium">
-                      Module {module.id}
+                {Array.isArray(outline.modulesList) ? outline.modulesList.map((module: any, mIdx: number) => (
+                  (module && typeof module === 'object' && typeof module.title === 'string' && Array.isArray(module.lessons)) ? (
+                    <div key={module.id || mIdx} className="space-y-4">
+                      <div className="bg-muted/50 text-muted-foreground px-3 py-1 rounded-md border border-border inline-block text-sm font-medium">
+                        Module {module.id}
+                      </div>
+                      <h3 className="text-lg font-semibold text-foreground">{module.title}</h3>
+                      <div className="space-y-3 pl-4 border-l-2 border-border">
+                        {Array.isArray(module.lessons) ? module.lessons.map((lesson: any, lIdx: number) => (
+                          (lesson && typeof lesson === 'object' && typeof lesson.title === 'string') ? (
+                            <div key={lesson.id || lIdx} className="flex items-center justify-between py-3 px-4 bg-card text-card-foreground rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                              <div className="flex items-center gap-3">
+                                {/* <div className="text-sm font-medium text-foreground">{lesson.id}</div> */}
+                                <div className="font-medium text-foreground">{lesson.title}</div>
+                              </div>
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                <span>{typeof lesson.duration === 'string' || typeof lesson.duration === 'number' ? lesson.duration : ''}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={lIdx} className="text-destructive">Invalid lesson data</div>
+                          )
+                        )) : <div className="text-destructive">Invalid lessons data</div>}
+                      </div>
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground">{module.title}</h3>
-
-                    <div className="space-y-3 pl-4 border-l-2 border-border">
-                      {module.lessons?.map((lesson: any) => (
-                        <div
-                          key={lesson.id}
-                          className="flex items-center justify-between py-3 px-4 bg-card text-card-foreground rounded-lg border border-border hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="text-sm font-medium text-foreground">{lesson.id}</div>
-                            <div className="font-medium text-foreground">{lesson.title}</div>
-                          </div>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{lesson.duration}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ) : (
+                    <div key={module.id || mIdx} className="text-destructive">Invalid module data</div>
+                  )
+                )) : <div className="text-destructive">Invalid modulesList data</div>}
               </div>
             </CardContent>
           </Card>
@@ -921,7 +758,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
       )}
 
       {isGenerating && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex flex-col items-center justify-center">
+        <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-40 z-[100] flex flex-col items-center justify-center">
           <div className="bg-card p-8 rounded-lg shadow-lg flex flex-col items-center max-w-md">
             <div className="text-lg font-bold mb-2 text-foreground">Sedang generate lesson {generationProgress.lesson} dari {generationProgress.totalLessons}...</div>
             <div className="w-64 mb-4">
@@ -932,7 +769,6 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
             <div className="text-muted-foreground text-sm text-center mb-4">
               Mohon tunggu, proses ini bisa memakan waktu beberapa menit.
             </div>
-            
             {/* Peringatan AI Hallucination */}
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 w-full">
               <div className="flex items-start gap-3">

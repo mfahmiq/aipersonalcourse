@@ -11,49 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BookOpen, Clock, Play, Search, Filter, Plus, Sparkles, Edit, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-// Default courses (existing dummy data)
-const defaultCourses = [
-  {
-    id: "1",
-    title: "Introduction to Artificial Intelligence",
-    description: "Learn the fundamentals of AI, machine learning, and deep learning.",
-    progress: 42,
-    totalLessons: 12,
-    completedLessons: 5,
-    duration: "8 weeks",
-    level: "Beginner",
-    status: "In Progress",
-    type: "default",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-  {
-    id: "2",
-    title: "Web Development with React",
-    description: "Master modern web development using React and related technologies.",
-    progress: 0,
-    totalLessons: 15,
-    completedLessons: 0,
-    duration: "10 weeks",
-    level: "Intermediate",
-    status: "Not Started",
-    type: "default",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-  {
-    id: "3",
-    title: "Data Science Fundamentals",
-    description: "Explore data analysis, visualization, and machine learning basics.",
-    progress: 0,
-    totalLessons: 18,
-    completedLessons: 0,
-    duration: "12 weeks",
-    level: "Beginner",
-    status: "Not Started",
-    type: "default",
-    image: "/placeholder.svg?height=200&width=300",
-  },
-]
-
 // Tambahkan tipe Course agar nextLessonId dikenali
 interface Course {
   id: string;
@@ -72,7 +29,7 @@ interface Course {
 }
 
 export default function CoursePage() {
-  const [courses, setCourses] = useState<Course[]>(defaultCourses)
+  const [courses, setCourses] = useState<Course[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [filterLevel, setFilterLevel] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
@@ -121,7 +78,7 @@ export default function CoursePage() {
         nextLessonId,
       }
     })
-    setCourses([...defaultCourses, ...formattedGeneratedCourses])
+    setCourses(formattedGeneratedCourses)
   }, [])
 
   // Handle course deletion

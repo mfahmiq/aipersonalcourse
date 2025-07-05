@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,9 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const supabase = createClientComponentClient()
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => { setIsMounted(true); }, []);
 
   // Get the current page title based on the pathname
   const getPageTitle = () => {
@@ -98,24 +101,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search..."
-                className="w-[200px] pl-8 md:w-[240px] bg-background border-border focus-visible:ring-ring placeholder:text-muted-foreground"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <Button variant="ghost" size="icon" className="relative text-foreground">
-              <Bell className="h-5 w-5 text-foreground" />
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 dark:bg-red-700"></span>
-              <span className="sr-only">Notifications</span>
-            </Button>
-
-            <ThemeToggle />
+            {isMounted && <ThemeToggle />}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

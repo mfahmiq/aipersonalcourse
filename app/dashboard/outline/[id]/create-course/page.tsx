@@ -146,9 +146,9 @@ ${settings.includeQuizzes ? "Complete the module quiz to test your understanding
                 {
                   question: `How many lessons are covered in ${module.title}?`,
                   options: [
-                    `${module.lessons?.length - 1} lessons`,
-                    `${module.lessons?.length} lessons`,
-                    `${module.lessons?.length + 1} lessons`,
+                    `${Array.isArray(module.lessons) ? module.lessons.length - 1 : 0} lessons`,
+                    `${Array.isArray(module.lessons) ? module.lessons.length : 0} lessons`,
+                    `${Array.isArray(module.lessons) ? module.lessons.length + 1 : 1} lessons`,
                     "It varies",
                   ],
                   correct: 1,
@@ -176,9 +176,9 @@ ${settings.includeQuizzes ? "Complete the module quiz to test your understanding
     ]
 
     // Simulate course generation process
-    for (let i = 0; i < steps.length; i++) {
+    for (let i = 0; i < (Array.isArray(steps) ? steps.length : 0); i++) {
       setCurrentStep(steps[i])
-      setGenerationProgress((i + 1) * (100 / steps.length))
+      setGenerationProgress((i + 1) * (100 / (Array.isArray(steps) ? steps.length : 1)))
       await new Promise((resolve) => setTimeout(resolve, 2000))
     }
 
@@ -234,7 +234,7 @@ The course follows the exact structure you defined in your outline, ensuring con
 
 ${outline.modulesList
   ?.slice(0, 3)
-  .map((module: any, idx: number) => `${idx + 1}. ${module.title} - ${module.lessons?.length} lessons`)
+  .map((module: any, idx: number) => `${idx + 1}. ${module.title} - ${Array.isArray(module.lessons) ? module.lessons.length : 0} lessons`)
   .join("\n")}${outline.modules > 3 ? "\n...and more!" : ""}
 
 Each module builds upon the previous one, ensuring a logical progression through the material.`,

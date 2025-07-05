@@ -13,6 +13,7 @@ import { FileText, Eye, Edit, Trash2, Clock, Sparkles, X, GraduationCap, Layers,
 import { useRouter } from "next/navigation"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { v4 as uuidv4 } from 'uuid'
+import { generateOutline } from "@/lib/utils/gemini"
 
 export default function OutlinePage() {
   const router = useRouter()
@@ -30,12 +31,32 @@ export default function OutlinePage() {
     goals: "",
   })
   const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
-  // Load outlines from localStorage
+  const cleanCorruptOutlines = (outlines: any[]) => {
+    return outlines.filter((outline) => {
+      if (!Array.isArray(outline.modulesList)) return false;
+      for (const module of outline.modulesList) {
+        if (!module || typeof module !== 'object' || typeof module.title !== 'string' || !Array.isArray(module.lessons)) return false;
+        for (const lesson of module.lessons) {
+          if (!lesson || typeof lesson !== 'object' || typeof lesson.title !== 'string') return false;
+        }
+      }
+      return true;
+    });
+  };
+
   useEffect(() => {
+    setIsMounted(true)
     const savedOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
-    setOutlines(savedOutlines)
+    const cleaned = cleanCorruptOutlines(savedOutlines)
+    if (cleaned.length !== savedOutlines.length) {
+      localStorage.setItem("courseOutlines", JSON.stringify(cleaned))
+    }
+    setOutlines(cleaned)
   }, [])
+
+  if (!isMounted) return null
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -44,66 +65,7 @@ export default function OutlinePage() {
   // Replace the existing generateOutlineContent function
   const generateOutlineContent = async (formData: any) => {
     try {
-      // Initialize the Generative AI model
-      const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
-      // Use gemini-1.5-flash-latest as requested (Gemini 2.0 Flash is part of 1.5 family)
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" })
-
-      const prompt = `Create a detailed course outline based on the following information:
-Title: ${formData.title}
-Topic: ${formData.topic}
-${formData.degree ? `Degree/Field: ${formData.degree}` : ""}
-${formData.difficulty ? `Difficulty Level: ${formData.difficulty}` : ""}
-${formData.duration ? `Estimated Duration: ${formData.duration}` : ""}
-${formData.language ? `Language: ${formData.language}` : ""}
-${formData.video === 'yes' ? "Include video content suggestions." : ""}
-${formData.chapters ? `Target Number of Chapters/Modules: ${formData.chapters}` : ""}
-${formData.goals ? `Specific Learning Goals:\n${formData.goals}` : ""}
-
-The output should be in a structured JSON format, suitable for a learning platform.
-Include the following fields:
-- id: A unique string identifier (use a timestamp or random string)
-- title: The course title
-- description: A brief course description
-- topic: The main topic
-- degree: The target degree/field (if provided)
-- level: Difficulty level (Beginner, Intermediate, Advanced)
-- duration: Estimated duration
-- language: Course language
-- includeVideo: boolean based on input
-- status: Initial status (e.g., "Draft")
-- modules: Total number of modules
-- lessons: Total number of lessons
-- estimatedHours: Estimated total study hours
-- createdAt: Timestamp of creation
-- modulesList: An array of module objects. Each module should have:
-    - id: Module number (e.g., 1, 2, ...)
-    - title: Module title
-    - lessons: An array of lesson objects. Each lesson should have:
-        - id: Lesson identifier (e.g., "1.1", "1.2", ...)
-        - title: Lesson title
-        - duration: Estimated lesson duration (e.g., "15 min", "30 min")
-- learningGoals: An array of learning goal strings.
-- overview: A general overview of the course.
-
-Ensure the JSON is valid and contains only the described structure. Do not include any introductory or concluding text outside the JSON object.`
-
-      const result = await model.generateContent(prompt)
-      const response = result.response
-      const text = response.text()
-
-      // Attempt to extract and parse the JSON response from markdown
-      let jsonString = text.trim()
-      const jsonMatch = jsonString.match(/^```json\n([\s\S]*)\n```$/)
-      if (jsonMatch && jsonMatch[1]) {
-        jsonString = jsonMatch[1].trim()
-      } else {
-        // If no markdown block is found, assume the response is plain JSON
-        console.warn("JSON markdown block not found, attempting to parse raw response.", text)
-      }
-
-      const generatedOutline = JSON.parse(jsonString)
-
+      const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
       // Add missing fields that were previously generated client-side if needed
       generatedOutline.id = uuidv4()
       if (!generatedOutline.createdAt) {
@@ -112,14 +74,9 @@ Ensure the JSON is valid and contains only the described structure. Do not inclu
       if (!generatedOutline.status) {
         generatedOutline.status = "Draft"; // Default status
       }
-
       return generatedOutline
-
-    } catch (error) {
-      console.error("Error generating outline:", error)
-      alert("Failed to generate outline. Please check the console for details.")
-      setIsGenerating(false) // Stop loading state
-      throw error // Re-throw to prevent further execution with invalid data
+    } catch (err) {
+      throw err
     }
   }
 
@@ -340,7 +297,7 @@ Ensure the JSON is valid and contains only the described structure. Do not inclu
       <div>
         <h2 className="text-xl font-semibold text-foreground mb-4">Your Outlines</h2>
 
-        {outlines.length === 0 ? (
+        {Array.isArray(outlines) && outlines.length === 0 ? (
           <div className="text-center py-12 border border-border rounded-lg bg-card p-8 shadow-sm">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">No outlines created yet</h3>
@@ -364,21 +321,21 @@ Ensure the JSON is valid and contains only the described structure. Do not inclu
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                    <span>{outline.modules} Modules</span>
+                    <span>{Array.isArray(outline.modulesList) ? outline.modulesList.length : 0} Modules</span>
                     <span>•</span>
-                    <span>{outline.lessons} Lessons</span>
+                    <span>{Array.isArray(outline.modulesList) ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0} Lessons</span>
                     <span>•</span>
-                    <span>{outline.estimatedHours}</span>
+                    <span>{typeof outline.estimatedHours === "number" || typeof outline.estimatedHours === "string" ? outline.estimatedHours : "?"}</span>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-muted-foreground text-sm line-clamp-2">{outline.description}</p>
+                  <p className="text-muted-foreground text-sm line-clamp-2">{typeof outline.description === "string" ? outline.description : ""}</p>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant="secondary" className={`border border-border ${getStatusColor(outline.status)}`}>
-                      {outline.status}
+                      {typeof outline.status === "string" ? outline.status : "Unknown"}
                     </Badge>
                     <Badge variant="outline" className={`border border-border ${getLevelColor(outline.level)}`}>
-                      {outline.level}
+                      {typeof outline.level === "string" ? outline.level : "Unknown"}
                     </Badge>
                   </div>
                   <div className="flex gap-2">

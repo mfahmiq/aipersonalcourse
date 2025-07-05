@@ -135,7 +135,7 @@ export default function ViewCoursePage() {
                     <BookOpen className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-foreground">{course.modules.length}</div>
+                    <div className="text-2xl font-bold text-foreground">{Array.isArray(course.modules) ? course.modules.length : 0}</div>
                     <p className="text-sm text-muted-foreground">Modules</p>
                   </div>
                 </CardContent>
@@ -148,7 +148,7 @@ export default function ViewCoursePage() {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-foreground">
-                      {course.modules.reduce((total: number, module: any) => total + module.lessons.length, 0)}
+                      {Array.isArray(course.modules) ? course.modules.reduce((total: number, module: any) => total + (Array.isArray(module.lessons) ? module.lessons.length : 0), 0) : 0}
                     </div>
                     <p className="text-sm text-muted-foreground">Lessons</p>
                   </div>
@@ -208,7 +208,7 @@ export default function ViewCoursePage() {
                                     : lesson.content
                                   }
                                 </div>
-                                {lesson.content.length > 300 && (
+                                {typeof lesson.content === 'string' && lesson.content.length > 300 && (
                                   <div className="absolute bottom-0 right-0 bg-gradient-to-l from-background to-transparent w-8 h-4"></div>
                                 )}
                               </div>
