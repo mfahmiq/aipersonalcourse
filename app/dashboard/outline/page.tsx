@@ -16,8 +16,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { generateOutline } from "@/lib/utils/gemini"
 import { Portal } from "@/components/Portal"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { supabase } from "@/lib/supabase"
-import Cookies from "js-cookie"
 
 export default function OutlinePage() {
   const router = useRouter()
@@ -36,7 +34,8 @@ export default function OutlinePage() {
   })
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  const userId = Cookies.get("user_id")
+  const [error, setError] = useState("")
+  const supabase = createClientComponentClient();
 
   const cleanCorruptOutlines = (outlines: any[]) => {
     return outlines.filter((outline) => {
@@ -53,18 +52,14 @@ export default function OutlinePage() {
 
   useEffect(() => {
     setIsMounted(true)
+    // Fetch outlines from Supabase
     const fetchOutlines = async () => {
-      if (!userId) return;
-      const { data, error } = await supabase
-        .from("outlines")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      if (error) console.error("Outlines fetch error:", error);
-      setOutlines(data || [])
+      const { data, error } = await supabase.from("outlines").select("*").order("id", { ascending: false })
+      if (error) setError(error.message)
+      else setOutlines(data || [])
     }
     fetchOutlines()
-  }, [userId])
+  }, [])
 
   if (!isMounted) return null
 
@@ -72,6 +67,7 @@ export default function OutlinePage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  // Replace the existing generateOutlineContent function
   const generateOutlineContent = async (formData: any) => {
     try {
       const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
@@ -89,56 +85,79 @@ export default function OutlinePage() {
     }
   }
 
+
   const handleGenerateOutline = async () => {
     if (!formData.title || !formData.topic) {
       alert("Please fill in at least the title and topic fields")
       return
     }
+
     setIsGenerating(true)
+
     try {
-      const newOutline = await generateOutlineContent(formData)
-      // Simpan ke Supabase
-      const { error: insertError } = await supabase.from("outlines").insert({
-        user_id: userId,
-        title: newOutline.title,
-        description: newOutline.description,
-        topic: newOutline.topic,
-        level: newOutline.level,
-        duration: newOutline.duration,
-        language: newOutline.language,
-        modules: newOutline.modules,
-        lessons: newOutline.lessons,
-        overview: newOutline.overview,
-        learning_goal: newOutline.learning_goal,
-      })
-      if (insertError) throw insertError
-      // Refresh outlines
-      const { data, error } = await supabase
-        .from("outlines")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-      if (error) console.error("Outlines fetch error:", error);
-      setOutlines(data || [])
-      // Reset form
-      setFormData({
-        title: "",
-        topic: "",
-        degree: "",
-        difficulty: "",
-        duration: "",
-        language: "",
-        video: "",
-        chapters: "",
-        goals: "",
-      })
-      // Navigate to the new outline (ambil id dari insert jika perlu)
-      // router.push(`/dashboard/outline/${newOutline.id}`)
+        const newOutline = await generateOutlineContent(formData)
+
+        // Get user id from Supabase Auth
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        if (!userId) {
+          setError("User not authenticated.");
+          setIsGenerating(false);
+          return;
+        }
+        // Insert into outlines table
+        const modulesCount = Array.isArray(newOutline.modulesList) ? newOutline.modulesList.length : 0;
+        const lessonsCount = Array.isArray(newOutline.modulesList)
+          ? newOutline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0)
+          : 0;
+        const learningGoalValue = Array.isArray(newOutline.learningGoals)
+          ? newOutline.learningGoals.join(', ')
+          : (newOutline.learning_goal || '');
+        const { error: dbError } = await supabase.from("outlines").insert({
+          user_id: userId,
+          title: newOutline.title,
+          description: newOutline.description,
+          topic: newOutline.topic,
+          level: newOutline.level,
+          duration: newOutline.duration,
+          language: newOutline.language,
+          modules: modulesCount,
+          lessons: lessonsCount,
+          overview: newOutline.overview,
+          learning_goal: learningGoalValue,
+          modules_detail: newOutline.modulesList
+        });
+        if (dbError) {
+          console.error("Supabase insert error:", dbError);
+          setError("Failed to save outline: " + dbError.message);
+          setIsGenerating(false);
+          return;
+        }
+        // Refresh outlines list
+        const { data, error } = await supabase.from("outlines").select("*").order("id", { ascending: false })
+        if (error) {
+          console.error("Supabase fetch error:", error);
+          setError(error.message);
+        } else {
+          setOutlines(data || [])
+        }
+        // Reset form
+        setFormData({
+          title: "",
+          topic: "",
+          degree: "",
+          difficulty: "",
+          duration: "",
+          language: "",
+          video: "",
+          chapters: "",
+          goals: "",
+        })
+        setShowGenerateModal(false)
     } catch (error) {
-      // Error handling
-      console.error("Generate outline error:", error);
+        // Error handling is done within generateOutlineContent
     } finally {
-      setIsGenerating(false)
+        setIsGenerating(false)
     }
   }
 
@@ -146,6 +165,7 @@ export default function OutlinePage() {
     if (confirm("Are you sure you want to delete this outline?")) {
       const updatedOutlines = outlines.filter((outline) => outline.id !== id)
       setOutlines(updatedOutlines)
+      localStorage.setItem("courseOutlines", JSON.stringify(updatedOutlines))
     }
   }
 
@@ -321,7 +341,11 @@ export default function OutlinePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {outlines.map((outline) => (
+            {outlines.map((outline) => {
+              const modulesDetail = Array.isArray(outline.modules_detail) ? outline.modules_detail : [];
+              const modulesCount = modulesDetail.length;
+              const lessonsCount = modulesDetail.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0);
+              return (
               <Card key={outline.id} className="border border-border bg-card shadow-sm hover:shadow-md transition-shadow group">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -335,11 +359,11 @@ export default function OutlinePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                    <span>{Array.isArray(outline.modulesList) ? outline.modulesList.length : 0} Modules</span>
+                      <span>{modulesCount} Modules</span>
                     <span>•</span>
-                    <span>{Array.isArray(outline.modulesList) ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0} Lessons</span>
+                      <span>{lessonsCount} Lessons</span>
                     <span>•</span>
-                    <span>{typeof outline.estimatedHours === "number" || typeof outline.estimatedHours === "string" ? outline.estimatedHours : "?"}</span>
+                      <span>{outline.estimatedhours || "?"} Est.</span>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -366,7 +390,8 @@ export default function OutlinePage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -14,14 +14,14 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Sparkles, BookOpen, Video, FileText, MessageSquare, Target } from "lucide-react"
-import { supabase } from "@/lib/supabase"
-import Cookies from "js-cookie"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function CreateCoursePage() {
-  const params = useParams()
-  const outlineId = params.id as string
+  const { id } = useParams()
   const router = useRouter()
+  const outlineId = Array.isArray(id) ? id[0] : id
   const [outline, setOutline] = useState<any>(null)
+
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationProgress, setGenerationProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState("")
@@ -38,28 +38,27 @@ export default function CreateCoursePage() {
     codeSnippets: true,
   })
 
+  const supabase = createClientComponentClient();
+  const [error, setError] = useState("");
+
+  // Load outline data
   useEffect(() => {
-    const fetchOutline = async () => {
-      const { data, error } = await supabase
-        .from("outlines")
-        .select("*")
-        .eq("id", outlineId)
-        .single();
-      if (data) {
-        setOutline(data)
-        setCourseSettings((prev) => ({
-          ...prev,
-          title: data.title,
-          description: data.description,
-          language: data.language || "english",
-          includeVideos: data.includeVideo || false,
-        }))
-      } else {
-        router.push("/dashboard/outline")
-      }
+    const savedOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
+    const foundOutline = savedOutlines.find((o: any) => o.id === outlineId)
+
+    if (foundOutline) {
+      setOutline(foundOutline)
+      setCourseSettings((prev) => ({
+        ...prev,
+        title: foundOutline.title,
+        description: foundOutline.description,
+        language: foundOutline.language || "english",
+        includeVideos: foundOutline.includeVideo || false,
+      }))
+    } else {
+      router.push("/dashboard/outline")
     }
-    fetchOutline()
-  }, [outlineId, router, supabase])
+  }, [outlineId, router])
 
   const handleSettingChange = (key: string, value: any) => {
     setCourseSettings((prev) => ({ ...prev, [key]: value }))
@@ -165,38 +164,168 @@ ${settings.includeQuizzes ? "Complete the module quiz to test your understanding
     )
   }
 
-  const handleCreateCourse = async () => {
-    if (!outline) return
-    setIsGenerating(true)
-    setCurrentStep("Generating course...")
-    try {
-      const userId = Cookies.get("user_id");
-      if (!userId) throw new Error("User not found");
-      // Generate course data (logic lama, bisa disesuaikan)
-      const courseData = {
-        outline_id: outline.id,
-        user_id: userId,
-        title: courseSettings.title,
-        description: courseSettings.description,
-        level: outline.level,
-        duration: outline.duration,
-        image_url: "", // bisa diisi jika ada
-        created_at: new Date().toISOString(),
-      }
-      // Simpan ke Supabase
-      const { data: inserted, error } = await supabase.from("courses").insert(courseData).select().single();
-      if (error) throw error;
-      setCurrentStep("Course created successfully!")
-      setTimeout(() => {
-        router.push(`/dashboard/course/${inserted.id}`)
-      }, 1500)
-    } catch (error) {
-      setCurrentStep("")
-      alert("Failed to create course. Please try again.")
-    } finally {
-      setIsGenerating(false)
+  const handleGenerateAndSaveOutline = async () => {
+    setError("");
+    if (!outline) return;
+    // Validate all required fields
+    const requiredFields = [
+      courseSettings.title,
+      courseSettings.description,
+      outline?.topic,
+      outline?.level,
+      outline?.duration,
+      courseSettings.language,
+      outline?.modules,
+      outline?.lessons,
+      outline?.overview,
+      outline?.learning_goal
+    ];
+    if (requiredFields.some(f => !f || f === "")) {
+      setError("Please fill in all required fields.");
+      return;
     }
+    // Get user id from Supabase Auth
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) {
+      setError("User not authenticated.");
+      return;
+    }
+    // Insert into outlines table
+    const { error: dbError } = await supabase.from("outlines").insert({
+      user_id: userId,
+      title: courseSettings.title,
+      description: courseSettings.description,
+      topic: outline.topic,
+      level: outline.level,
+      duration: outline.duration,
+      language: courseSettings.language,
+      modules: outline.modules,
+      lessons: outline.lessons,
+      overview: outline.overview,
+      learning_goal: outline.learning_goal
+    });
+    if (dbError) {
+      setError("Failed to save outline: " + dbError.message);
+      return;
+    }
+    // Success: redirect
+    router.push("/dashboard/outline");
   }
+
+  const handleCreateCourse = async () => {
+    if (!outline) return;
+
+    setIsGenerating(true);
+    setGenerationProgress(0);
+
+    const steps = [
+      "Analyzing outline structure...",
+      "Generating comprehensive content...",
+      "Creating interactive elements...",
+      "Adding practical examples...",
+      "Generating assessment materials...",
+      "Finalizing course structure...",
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+      setCurrentStep(steps[i]);
+      setGenerationProgress((i + 1) * (100 / steps.length));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+
+    // Generate course content (array of lessons/chapters)
+    const chapters = generateCourseContent(outline, courseSettings);
+
+    // Get user id from Supabase Auth
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) {
+      setError("User not authenticated.");
+      setIsGenerating(false);
+      return;
+    }
+
+    // Insert ke tabel courses
+    const { data: courseInsert, error: courseError } = await supabase
+      .from("courses")
+      .insert([
+        {
+          user_id: userId,
+          outline_id: outlineId,
+          title: outline.title,
+          description: outline.description,
+          level: outline.level,
+          duration: outline.duration,
+          estimated_hours: outline.estimatedHours,
+          modules: outline.modules,
+          lessons: outline.lessons,
+          progress: 0,
+          status: "active",
+          type: "generated",
+          overview: outline.overview,
+          topic: outline.topic,
+          learning_goals: outline.learningGoals,
+          settings: courseSettings,
+          chatbot_qa: [
+            {
+              question: `What will I learn in ${outline.title}?`,
+              answer: `In this course, you'll learn ${outline.topic}. The course covers ${outline.modules} modules with ${outline.lessons} lessons, designed to take you from ${outline.level?.toLowerCase?.()} to proficient level. You'll gain practical skills and theoretical knowledge that you can apply immediately.\n\nThe main learning goals include:\n${outline.learningGoals?.slice(0, 3).map((goal: string) => `- ${goal}`).join("\n")}`,
+            },
+            {
+              question: "How long will it take to complete this course?",
+              answer: `This course is estimated to take ${outline.estimatedHours} of study time over ${outline.duration}. However, you can learn at your own pace and revisit any content as needed. Each module contains ${Math.round(outline.lessons / outline.modules)} lessons on average.`,
+            },
+            {
+              question: "What makes this course special?",
+              answer: `This course was generated using AI based on your specific learning goals and the detailed outline you created. The content is personalized to your needs and includes:\n\n${courseSettings.includeVideos ? "- Video recommendations and tutorials\n" : ""}${courseSettings.includeQuizzes ? "- Interactive quizzes and assessments\n" : ""}${courseSettings.includeExercises ? "- Hands-on exercises and projects\n" : ""}${courseSettings.examples ? "- Real-world examples and case studies\n" : ""}\n\nThe course follows the exact structure you defined in your outline, ensuring consistency with your learning objectives.`,
+            },
+            {
+              question: `Tell me more about the ${outline.topic} topics covered`,
+              answer: `This course provides comprehensive coverage of ${outline.topic}. Based on your outline, the course is structured into ${outline.modules} main modules:\n\n${outline.modulesList?.slice(0, 3).map((module: any, idx: number) => `${idx + 1}. ${module.title} - ${Array.isArray(module.lessons) ? module.lessons.length : 0} lessons`).join("\n")}${outline.modules > 3 ? "\n...and more!" : ""}\n\nEach module builds upon the previous one, ensuring a logical progression through the material.`,
+            },
+          ],
+          lessons_detail: chapters, // array of lesson object (format localStorage)
+        },
+      ])
+      .select("id")
+      .single();
+
+    if (courseError || !courseInsert) {
+      setError("Failed to save course: " + (courseError?.message || "Unknown error"));
+      setIsGenerating(false);
+      return;
+    }
+
+    const courseId = courseInsert.id;
+
+    // Insert semua lessons ke tabel course_chapters
+    const chaptersToInsert = chapters.map((chapter: any) => ({
+      course_id: courseId,
+      title: chapter.title,
+      content: chapter.content,
+      video_url: chapter.videoUrl,
+      quiz: chapter.quiz,
+    }));
+
+    if (chaptersToInsert.length > 0) {
+      const { error: chaptersError } = await supabase
+        .from("course_chapters")
+        .insert(chaptersToInsert);
+
+      if (chaptersError) {
+        setError("Failed to save lessons: " + chaptersError.message);
+        setIsGenerating(false);
+        return;
+      }
+    }
+
+    setCurrentStep("Course created successfully!");
+
+    setTimeout(() => {
+      router.push(`/dashboard/course/${courseId}`);
+    }, 1500);
+  };
 
   if (!outline) {
     return (
@@ -493,11 +622,13 @@ ${settings.includeQuizzes ? "Complete the module quiz to test your understanding
         <Button variant="outline" onClick={() => router.push(`/dashboard/outline/${outlineId}`)}>
           Cancel
         </Button>
-        <Button onClick={handleCreateCourse} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+        <Button onClick={handleGenerateAndSaveOutline} className="bg-emerald-500 hover:bg-emerald-600 text-white">
           <Sparkles className="h-4 w-4 mr-2" />
-          Create Course with AI
+          Generate & Save Outline
         </Button>
       </div>
+
+      {error && <div className="text-red-600 font-medium mb-4">{error}</div>}
     </div>
   )
 }

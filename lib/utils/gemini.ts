@@ -40,11 +40,7 @@ export async function generateLessonContent({ outlineData, module, lesson }: any
     }
   })
   let content = result.response.text().trim()
-  // Jika ada blok markdown, ambil isinya
-  const mdMatch = content.match(/```(?:md|markdown)?([\s\S]*?)```/)
-  if (mdMatch && mdMatch[1]) {
-    content = mdMatch[1].trim()
-  }
+  // Gunakan seluruh isi markdown, jangan hanya blok kode
   // Validasi dan perbaiki link referensi jika fungsi disediakan
   if (validateAndFixReferences) {
     content = await validateAndFixReferences(content)

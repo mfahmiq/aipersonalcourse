@@ -22,9 +22,6 @@ import { LessonMainContent } from "@/components/lesson/LessonMainContent"
 import { LessonAssistant } from "@/components/lesson/LessonAssistant"
 import { LESSON_ASSISTANT_PROMPT } from "@/lib/utils/prompts"
 import { generateLessonAssistant } from "@/lib/utils/gemini"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { supabase } from "@/lib/supabase"
-import Cookies from "js-cookie"
 
 // Fungsi untuk membersihkan markdown
 function cleanMarkdown(md: string) {
@@ -132,12 +129,10 @@ const CodeRenderer = ({ node, inline, className, children, ...props }: CodeRende
 };
 
 export default function LessonPage() {
+  const { id, lessonId } = useParams()
   const router = useRouter()
-  const params = useParams()
-  const courseId = params.id as string
-  const currentLessonId = params.lessonId as string
-  const supabase = createClientComponentClient()
-  const userId = Cookies.get("user_id")
+  const courseId = Array.isArray(id) ? id[0] : id
+  const currentLessonId = Array.isArray(lessonId) ? lessonId[0] : lessonId
 
   const [course, setCourse] = useState<any>(null)
   const [currentLesson, setCurrentLesson] = useState<any>(null)
@@ -157,57 +152,145 @@ export default function LessonPage() {
 
   const contentRef = useRef<HTMLDivElement>(null)
 
+  // Load course data and current lesson
   useEffect(() => {
-    const fetchCourseAndLessons = async () => {
-      // Ambil data course
-      const { data: courseData, error: courseError } = await supabase
-        .from("courses")
-        .select("*, lessons(*)")
-        .eq("id", courseId)
-        .single()
-      if (courseError) console.error("Course fetch error:", courseError);
-      if (!courseData) return router.push("/dashboard/course")
-      setCourse(courseData)
-      setAllLessons(courseData.lessons || [])
+    // First check if it's a default course or generated course
+    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
+    const course = generatedCourses.find((c: any) => c.courseId === courseId || c.id === courseId)
 
-      // Ambil progress user
-      const { data: progressData, error: progressError } = await supabase
-        .from("user_progress")
-        .select("completed, progress_percentage")
-        .eq("user_id", userId)
-        .eq("course_id", courseId)
-        .single()
-      if (progressError) console.error("User progress fetch error:", progressError);
-      setCompletedLessons(
-        Array.isArray(progressData?.completed)
-          ? progressData.completed
-          : JSON.parse(progressData?.completed || '[]')
-      )
-      setProgress(progressData?.progress_percentage || 0)
-
-      // Set current lesson
-      const foundLesson = (courseData.lessons || []).find((l: any) => l.id === currentLessonId)
-      if (foundLesson) {
-        setCurrentLesson(foundLesson)
-      } else if ((courseData.lessons || []).length > 0) {
-        router.push(`/dashboard/course/${courseId}/learn/${courseData.lessons[0].id}`)
+    if (course) {
+      // Ensure course has required fields
+      const validatedCourse = {
+        ...course,
+        courseId: course.courseId || course.id,
+        title: course.title || "Untitled Course",
+        description: course.description || "No description available",
+        chapters: Array.isArray(course.chapters) ? course.chapters : [],
       }
+      setCourse(validatedCourse)
+
+      // Create flat list of all lessons
+      const allLessonsArray: any[] = []
+      const moduleIndex = 0
+
+      // For generated courses, we need to create a lesson structure from chapters
+      if (validatedCourse.chapters && validatedCourse.chapters.length > 0) {
+        const modules = [
+          {
+            id: "introduction",
+            title: "Introduction to " + validatedCourse.title,
+            lessons: validatedCourse.chapters
+              .slice(0, Math.ceil(validatedCourse.chapters.length / 2))
+              .map((chapter: any, idx: number) => ({
+                id: `1.${idx + 1}`,
+                title: chapter.title.replace(/^Module \d+: /, ""),
+                duration: `${15 + idx * 5} min`,
+                content: chapter.content,
+                videoUrl: chapter.videoUrl,
+                moduleId: "introduction",
+                moduleIndex: 0,
+                lessonIndex: idx,
+                quiz: generateQuiz(chapter.title, 5),
+                courseId: validatedCourse.courseId,
+              })),
+          },
+          {
+            id: "advanced",
+            title: "Advanced Topics",
+            lessons: validatedCourse.chapters.slice(Math.ceil(validatedCourse.chapters.length / 2)).map((chapter: any, idx: number) => ({
+              id: `2.${idx + 1}`,
+              title: chapter.title.replace(/^Module \d+: /, ""),
+              duration: `${20 + idx * 5} min`,
+              content: chapter.content,
+              videoUrl: chapter.videoUrl,
+              moduleId: "advanced",
+              moduleIndex: 1,
+              lessonIndex: idx,
+              quiz: generateQuiz(chapter.title, 5),
+              courseId: validatedCourse.courseId,
+            })),
+          },
+        ]
+
+        // Flatten lessons for navigation
+        modules.forEach((module, mIdx) => {
+          module.lessons.forEach((lesson: any) => {
+            allLessonsArray.push({
+              ...lesson,
+              moduleTitle: module.title,
+              moduleId: module.id,
+              moduleIndex: mIdx,
+              courseId: validatedCourse.courseId,
+            })
+          })
+        })
+
+        // Find current lesson and module
+        const currentLessonObj = allLessonsArray.find((l) => l.id === currentLessonId)
+        if (currentLessonObj) {
+          setCurrentLesson(currentLessonObj)
+          setCurrentModule(modules[currentLessonObj.moduleIndex])
+
+          // Update recent courses in localStorage
+          try {
+            const recentCourses = JSON.parse(localStorage.getItem("recentCourses") || "[]")
+            const updatedRecentCourses = recentCourses.filter((item: any) => item.courseId !== courseId)
+            updatedRecentCourses.unshift({
+              courseId: course.id,
+              courseTitle: course.title,
+              lastViewedLessonId: currentLessonObj.id,
+              lastViewedLessonTitle: currentLessonObj.title,
+              progress: progress,
+              timestamp: Date.now(),
+            })
+            // Keep only the last 10 recent courses
+            localStorage.setItem("recentCourses", JSON.stringify(updatedRecentCourses.slice(0, 10)))
+          } catch (error) {
+            console.error("Failed to update recent courses in localStorage:", error)
+          }
+
+        } else if (allLessonsArray.length > 0) {
+          // If lesson not found, redirect to first lesson
+          router.push(`/dashboard/course/${courseId}/learn/${allLessonsArray[0].id}`)
+        }
+
+        setAllLessons(allLessonsArray)
+      }
+
+      // Load completed lessons from localStorage
+      const savedProgress = JSON.parse(localStorage.getItem(`course_progress_${courseId}`) || '{"completed": []}')
+      setCompletedLessons(savedProgress.completed || [])
+
+      // Calculate progress
+      if (allLessonsArray.length > 0) {
+        const progressPercentage = ((savedProgress.completed?.length || 0) / allLessonsArray.length) * 100
+        setProgress(progressPercentage)
+      }
+    } else {
+      // Course not found, redirect to courses page
+      router.push("/dashboard/course")
     }
-    fetchCourseAndLessons()
-  }, [courseId, currentLessonId, router, supabase, userId])
+
+    // Debug log
+    console.log('course', course);
+    console.log('allLessons', allLessons);
+    console.log('currentLessonId', currentLessonId);
+    const foundLesson = allLessons.find((l) => String(l.id) === String(currentLessonId));
+    console.log('foundLesson', foundLesson);
+  }, [courseId, currentLessonId, router])
 
   // Debug: log course, currentLesson, allLessons
   useEffect(() => {
     if (course) {
-      console.log('COURSE DATA:', course)
+      console.log('COURSE DATA:', course);
     }
     if (currentLesson) {
-      console.log('CURRENT LESSON:', currentLesson)
+      console.log('CURRENT LESSON:', currentLesson);
     }
     if (allLessons) {
-      console.log('ALL LESSONS:', allLessons)
+      console.log('ALL LESSONS:', allLessons);
     }
-  }, [course, currentLesson, allLessons])
+  }, [course, currentLesson, allLessons]);
 
   // Generate quiz questions for a lesson
   const generateQuiz = (lessonTitle: string, numQuestions = 5) => {
@@ -260,37 +343,65 @@ export default function LessonPage() {
   }
 
   // Mark lesson as complete
-  const markAsComplete = async () => {
+  const markAsComplete = () => {
     if (!currentLesson || !course) return
 
+    const updatedCompleted = [...completedLessons]
+    if (!updatedCompleted.includes(currentLesson.id)) {
+      updatedCompleted.push(currentLesson.id)
+    }
+
+    setCompletedLessons(updatedCompleted)
+
+    // Save to localStorage
+    localStorage.setItem(
+      `course_progress_${courseId}`,
+      JSON.stringify({
+        completed: updatedCompleted,
+      }),
+    )
+
     // Update progress
-    const progressPercentage = (completedLessons.length / allLessons.length) * 100
+    const progressPercentage = (updatedCompleted.length / allLessons.length) * 100
     setProgress(progressPercentage)
 
-    // Simpan ke Supabase
-    let completedString: string = "[]";
-    if (Array.isArray(completedLessons)) {
-      completedString = JSON.stringify(completedLessons);
-    } else if (typeof completedLessons === "string") {
-      completedString = completedLessons;
+    // Update course progress in courses list
+    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
+    const updatedCourses = generatedCourses.map((c: any) => {
+      if (c.id === courseId || c.courseId === courseId) {
+        return {
+          ...c,
+          progress: progressPercentage,
+        }
+      }
+      return c
+    })
+    localStorage.setItem("generatedCourses", JSON.stringify(updatedCourses))
+
+    // Update recent courses in localStorage (recent activity)
+    try {
+      const recentCourses = JSON.parse(localStorage.getItem("recentCourses") || "[]")
+      // Remove if already exists
+      const filtered = recentCourses.filter((item: any) => item.courseId !== courseId)
+      // Add to top
+      filtered.unshift({
+        courseId: course.courseId || course.id,
+        courseTitle: course.title,
+        lastViewedLessonId: currentLesson.id,
+        lastViewedLessonTitle: currentLesson.title,
+        progress: progressPercentage,
+        timestamp: Date.now(),
+      })
+      // Keep only last 10
+      localStorage.setItem("recentCourses", JSON.stringify(filtered.slice(0, 10)))
+    } catch (error) {
+      console.error("Failed to update recent courses in localStorage:", error)
     }
-    const upsertObj: any = {
-      user_id: userId,
-      course_id: courseId,
-      lesson_id: currentLesson.id,
-      // Ensure completed is always a string (JSON array)
-      completed: completedString,
-      progress_percentage: progressPercentage,
-      last_accessed: new Date().toISOString(),
-    }
-    // Debug log to check type and value
-    console.log("upsertObj.completed", upsertObj.completed, typeof upsertObj.completed, Array.isArray(upsertObj.completed))
-    // TypeScript fix: completed must be a string, not string[]
-    await supabase.from("user_progress").upsert([upsertObj], { onConflict: "user_id,course_id" })
 
     // Show quiz after marking complete
     setShowQuiz(true)
 
+    // Scroll to quiz
     setTimeout(() => {
       contentRef.current?.scrollIntoView({ behavior: "smooth" })
     }, 100)
@@ -368,7 +479,7 @@ export default function LessonPage() {
   useEffect(() => {
     if (course) {
       // Flatten all lessons
-      const allLessonsArray: any[] = []
+      const allLessonsArray: any[] = [];
       if (course.modules && Array.isArray(course.modules)) {
         course.modules.forEach((mod: any, mIdx: number) => {
           if (mod.lessons && Array.isArray(mod.lessons)) {
@@ -379,68 +490,50 @@ export default function LessonPage() {
                 moduleId: mod.id,
                 moduleIndex: mIdx,
                 courseId: course.courseId,
-              })
-              console.log('lesson', lesson)
-            })
+              });
+              console.log('lesson', lesson);
+            });
           }
-        })
+        });
       }
-      setAllLessons(allLessonsArray)
-      console.log('allLessonsArray', allLessonsArray)
+      setAllLessons(allLessonsArray);
+      console.log('allLessonsArray', allLessonsArray);
     }
-  }, [course])
+  }, [course]);
 
-  // Load completed lessons from Supabase
+  // Load completed lessons from localStorage
   useEffect(() => {
-    if (!courseId) return
-    const fetchCompletedLessons = async () => {
-      const { data: progressData } = await supabase
-        .from("user_progress")
-        .select("completed")
-        .eq("user_id", userId)
-        .eq("course_id", courseId)
-        .single()
-      let completedArr: string[] = [];
-      if (Array.isArray(progressData?.completed)) {
-        completedArr = progressData.completed;
-      } else if (typeof progressData?.completed === "string") {
-        try {
-          completedArr = JSON.parse(progressData.completed);
-        } catch {
-          completedArr = [];
-        }
-      }
-      setCompletedLessons(completedArr)
-    }
-    fetchCompletedLessons()
-  }, [courseId, supabase, userId])
+    if (!courseId) return;
+    const savedProgress = JSON.parse(localStorage.getItem(`course_progress_${courseId}`) || '{"completed": []}')
+    setCompletedLessons(savedProgress.completed || [])
+  }, [courseId])
 
   // Update progress whenever completedLessons or allLessons berubah
   useEffect(() => {
     if (allLessons.length > 0) {
       const progressPercentage = ((completedLessons.length || 0) / allLessons.length) * 100
       setProgress(progressPercentage)
-    } else {
+      } else {
       setProgress(0)
     }
   }, [completedLessons, allLessons])
 
   if (!course) {
-    return <div>Course not found</div>
+    return <div>Course not found</div>;
   }
   if (!currentLesson) {
     // Coba cari lesson dengan normalisasi id
-    const foundLesson = allLessons.find((l) => String(l.id) === String(currentLessonId))
+    const foundLesson = allLessons.find((l) => String(l.id) === String(currentLessonId));
     if (foundLesson) {
-      setCurrentLesson(foundLesson)
-      return null
+      setCurrentLesson(foundLesson);
+      return null;
     }
-    return (
+        return (
       <div>
-        Lesson not found. Cek id lesson di URL dan data course di Supabase.
+        Lesson not found. Cek id lesson di URL dan data course di localStorage.
         <pre>{JSON.stringify(allLessons, null, 2)}</pre>
-      </div>
-    )
+            </div>
+    );
   }
 
   return (
@@ -449,7 +542,7 @@ export default function LessonPage() {
       <LessonSidebar
         courseTitle={course?.title || ""}
         completedLessons={completedLessons}
-        allLessons={allLessons}
+        modules={course?.modules || []}
         currentLessonId={currentLesson?.id || ""}
         progress={progress}
         sidebarOpen={sidebarOpen}
@@ -474,6 +567,7 @@ export default function LessonPage() {
           allLessons={allLessons}
           navigateLesson={navigateLesson}
           contentRef={contentRef as React.RefObject<HTMLDivElement>}
+          setSidebarOpen={setSidebarOpen}
         />
       </div>
       {/* AI Assistant */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Bell, Search, Menu, LayoutDashboard, FileText, BookOpen, Settings, LogOut } from "lucide-react"
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
-import Cookies from "js-cookie"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface NavbarProps {
   onMenuClick?: () => void
@@ -26,8 +26,8 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   const pathname = usePathname()
   const [searchQuery, setSearchQuery] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const supabase = createClientComponentClient()
   const [isMounted, setIsMounted] = useState(false);
-  const router = useRouter();
 
   useEffect(() => { setIsMounted(true); }, []);
 
@@ -40,9 +40,15 @@ export function Navbar({ onMenuClick }: NavbarProps) {
     return "Dashboard"
   }
 
-  const handleLogout = () => {
-    Cookies.remove("user_id");
-    router.push("/login");
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+    localStorage.removeItem("isLoggedIn")
+      // Force a hard reload to clear any cached state
+      window.location.replace("/")
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
   }
 
   const handleMobileToggle = () => {

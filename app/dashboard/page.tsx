@@ -7,7 +7,6 @@ import { BookOpen, Clock, CheckCircle, TrendingUp, Play } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
-import Cookies from "js-cookie"
 
 export default function Dashboard() {
   const router = useRouter();
@@ -23,66 +22,53 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsMounted(true)
-    const fetchData = async () => {
-      // Ambil user_id dari cookie
-      const userId = Cookies.get("user_id");
-      if (!userId) return;
-      // Ambil data user
-      let name = "User";
-      const { data: userData, error: userError } = await supabase.from("app_users").select("name").eq("id", userId).single();
-      if (userError) console.error("User fetch error:", userError);
-      if (userData) {
-        name = userData.name || "User";
-      }
-      setUserName(name);
-      // Ambil outlines user
-      const { data: outlines, error: outlinesError } = await supabase.from("outlines").select("id").eq("user_id", userId);
-      if (outlinesError) {
-        console.error("Outlines fetch error:", outlinesError);
-        setStats({ total: 0, inProgress: 0, completed: 0, avgProgress: 0 });
-        setRecentActivity([]);
+    // Fetch user display name from Supabase
+    const fetchUserName = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setUserName("");
         return;
       }
-      const outlineIds = outlines?.map((o: any) => o.id) || [];
-      // Ambil data kursus user
-      let courses: any[] = [];
-      let coursesError: any = null;
-      if (outlineIds.length > 0) {
-        const { data: coursesData, error: cError } = await supabase
-          .from("courses")
-          .select("id, title, description, level, duration, image_url, created_at, outline_id, progress")
-          .in("outline_id", outlineIds);
-        courses = coursesData || [];
-        coursesError = cError;
-        if (coursesError) console.error("Courses fetch error:", coursesError);
+      const userId = session.user.id;
+      // Adjust table/field if your profile table or field is different
+      const { data: profile, error } = await supabase
+        .from("profile")
+        .select("full_name")
+        .eq("id", userId)
+        .single();
+      if (profile && profile.full_name) {
+        setUserName(profile.full_name);
+      } else {
+        setUserName(session.user.email || "User");
       }
-      const total = courses.length;
-      const completed = courses.filter((c: any) => (c.progress ?? 0) >= 100).length;
-      const inProgress = courses.filter((c: any) => (c.progress ?? 0) > 0 && (c.progress ?? 0) < 100).length;
-      const avgProgress = total > 0 ? Math.round(courses.reduce((sum: number, c: any) => sum + (c.progress ?? 0), 0) / total) : 0;
-      setStats({ total, inProgress, completed, avgProgress });
-      // Ambil recent activity dari user_progress
-      const { data: progressData, error: progressError } = await supabase
-        .from("user_progress")
-        .select("*")
-        .eq("user_id", userId)
-        .order("last_accessed", { ascending: false })
-        .limit(10);
-      if (progressError) console.error("User progress fetch error:", progressError);
-      // Map course titles from courses array
-      const recent = (progressData || []).map((item: any) => {
-        const course = courses.find((c: any) => c.id === item.course_id);
-        return {
-          courseId: item.course_id,
-          courseTitle: course?.title || "Unknown Course",
-          lastViewedLessonId: item.lesson_id,
-          progress: item.progress_percentage,
-          timestamp: item.last_accessed,
-        };
-      });
-      setRecentActivity(recent);
     };
-    fetchData();
+    fetchUserName();
+
+    // Ambil data kursus dari localStorage
+    const courses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
+    const total = Array.isArray(courses) ? courses.length : 0
+    const completed = Array.isArray(courses) ? courses.filter((c: any) => (c.progress ?? 0) >= 100).length : 0
+    const inProgress = Array.isArray(courses) ? courses.filter((c: any) => (c.progress ?? 0) > 0 && (c.progress ?? 0) < 100).length : 0
+    const avgProgress = total > 0 ? Math.round(courses.reduce((sum: number, c: any) => sum + (c.progress ?? 0), 0) / total) : 0
+
+    setStats({
+      total,
+      inProgress,
+      completed,
+      avgProgress,
+    })
+
+    // Ambil recent activity dari localStorage
+    const recent = JSON.parse(localStorage.getItem("recentCourses") || "[]")
+    // Ambil data kursus dari generatedCourses untuk info progress
+    const merged = recent.map((item: any) => {
+      const course = courses.find((c: any) => c.id === item.courseId || c.courseId === item.courseId)
+      return {
+        ...item,
+        progress: course?.progress ?? 0,
+      }
+    }).filter((item: any) => item.progress > 0)
+    setRecentActivity(merged)
   }, [])
 
   if (!isMounted) return null
@@ -172,6 +158,7 @@ export default function Dashboard() {
                           // Hapus dari recent activity
                           const updated = recentActivity.filter((_, i) => i !== index)
                           setRecentActivity(updated)
+                          localStorage.setItem("recentCourses", JSON.stringify(updated))
                         }}
                       >
                         ✓

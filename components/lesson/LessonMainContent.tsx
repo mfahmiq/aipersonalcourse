@@ -29,6 +29,7 @@ interface LessonMainContentProps {
   allLessons: any[]
   navigateLesson: (dir: "next" | "prev") => void
   contentRef: RefObject<HTMLDivElement>
+  setSidebarOpen: (open: boolean) => void
 }
 
 export const LessonMainContent: React.FC<LessonMainContentProps> = ({
@@ -48,6 +49,7 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
   allLessons,
   navigateLesson,
   contentRef,
+  setSidebarOpen,
 }) => {
   if (!currentLesson) return <div>Lesson not found</div>;
 
@@ -73,13 +75,21 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
             <span>{currentLesson.duration}</span>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 w-full lg:w-auto mb-4 sm:mb-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="block lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰ Lessons
+          </Button>
           <Button
             onClick={markAsComplete}
             disabled={completedLessons.includes(currentLesson.id)}
             size="sm"
             className={cn(
-              "w-full sm:w-auto px-3 py-1.5 flex items-center gap-2 transition-colors",
+              "px-3 py-1.5 flex items-center gap-2 transition-colors",
               completedLessons.includes(currentLesson.id)
                 ? "bg-primary text-primary-foreground cursor-default opacity-80"
                 : "bg-foreground text-background hover:bg-foreground/90"
@@ -104,21 +114,12 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
               </>
             )}
           </Button>
-          {/* Tombol Edit hanya jika id valid */}
-          {currentLesson?.id ? (
+          {currentLesson?.id && typeof currentLesson.id === 'string' && currentLesson.id !== 'undefined.1' && currentLesson.id !== '' && (
             <Link href={`/dashboard/course/${course?.courseId || course?.id}/learn/${currentLesson.id}/edit`}>
-              <Button size="icon" variant="outline" className="ml-2" aria-label="Edit Lesson">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m2-2l-6 6m2-2l6-6" />
-                </svg>
+              <Button size="sm" variant="outline" aria-label="Edit Lesson">
+                Edit
               </Button>
             </Link>
-          ) : (
-            <Button size="icon" variant="outline" className="ml-2" aria-label="Edit Lesson" disabled>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m2-2l-6 6m2-2l6-6" />
-              </svg>
-            </Button>
           )}
         </div>
       </div>
@@ -135,96 +136,29 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
           <h2 className="text-xl font-semibold text-foreground">{currentLesson.title}</h2>
         </div>
         <div className="prose max-w-none text-foreground">
-          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{currentLesson.content}</ReactMarkdown>
+          <ReactMarkdown
+            rehypePlugins={[rehypeRaw]}
+            components={{
+              code(props: any) {
+                const {inline, className, children, ...rest} = props;
+                if (inline) {
+                  return <code className={className}>{children}</code>;
+                }
+                return <code className={className} {...rest}>{children}</code>;
+              },
+              pre({children, ...props}) {
+                return (
+                  <pre className="bg-muted border rounded p-4 overflow-x-auto my-4" {...props}>
+                    {children}
+                  </pre>
+                );
+              }
+            }}
+          >{currentLesson.content}</ReactMarkdown>
         </div>
       </div>
       {/* Quiz Section */}
-      {(showQuiz || completedLessons.includes(currentLesson.id)) && currentLesson.quiz && (
-        <Card className="mb-8 border">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 mb-4 pb-4 border-b">
-              <FileText className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold text-foreground">Knowledge Check</h2>
-            </div>
-            {quizSubmitted ? (
-              <div className="space-y-4">
-                <div className="text-center py-4">
-                  <div className={cn(
-                    "text-2xl font-bold mb-2",
-                    quizScore >= 80 ? "text-primary" : quizScore >= 60 ? "text-amber-500" : "text-destructive",
-                  )}>
-                    Your Score: {quizScore}%
-                  </div>
-                  <p className="text-muted-foreground">
-                    {quizScore >= 80
-                      ? "Great job! You've mastered this lesson."
-                      : quizScore >= 60
-                        ? "Good effort! Review the material to improve your understanding."
-                        : "Keep practicing! You'll get there."}
-                  </p>
-                </div>
-                <Button
-                  onClick={() => {
-                    setQuizSubmitted(false)
-                    setQuizAnswers({})
-                  }}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Retake Quiz
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <FlashCard
-                  question={currentLesson.quiz.questions[currentFlashIndex].question}
-                  options={currentLesson.quiz.questions[currentFlashIndex].options}
-                  correct={currentLesson.quiz.questions[currentFlashIndex].correct}
-                  selected={flashSelections[currentFlashIndex] ?? null}
-                  onSelect={(idx) => setFlashSelections({ ...flashSelections, [currentFlashIndex]: idx })}
-                  showAnswer={!!flashShowAnswer[currentFlashIndex]}
-                  onFlip={() => setFlashShowAnswer({ ...flashShowAnswer, [currentFlashIndex]: !flashShowAnswer[currentFlashIndex] })}
-                />
-                <div className="flex justify-between gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentFlashIndex((i) => Math.max(0, i - 1))}
-                    disabled={currentFlashIndex === 0}
-                  >
-                    Sebelumnya
-                  </Button>
-                  {Array.isArray(currentLesson.quiz?.questions) && currentFlashIndex < currentLesson.quiz.questions.length - 1 ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => setCurrentFlashIndex((i) => Math.min(Array.isArray(currentLesson.quiz?.questions) ? currentLesson.quiz.questions.length - 1 : 0, i + 1))}
-                      disabled={Array.isArray(currentLesson.quiz?.questions) ? currentFlashIndex === currentLesson.quiz.questions.length - 1 : true}
-                    >
-                      Selanjutnya
-                    </Button>
-                  ) : (
-                    <Button
-                      className="bg-primary text-primary-foreground"
-                      onClick={() => {
-                        // Hitung skor
-                        let correctAnswers = 0;
-                        currentLesson.quiz.questions.forEach((q: any, idx: number) => {
-                          if (flashSelections[idx] === q.correct) correctAnswers++;
-                        });
-                        const score = Array.isArray(currentLesson.quiz?.questions) && currentLesson.quiz.questions.length > 0 ? Math.round((correctAnswers / currentLesson.quiz.questions.length) * 100) : 0;
-                        setQuizScore(score);
-                        setQuizSubmitted(true);
-                      }}
-                      disabled={Object.keys(flashSelections).length < (Array.isArray(currentLesson.quiz?.questions) ? currentLesson.quiz.questions.length : 0)}
-                    >
-                      Submit Quiz
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      
       {/* Navigation Buttons */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 mt-8 pt-4 border-t">
         <Button

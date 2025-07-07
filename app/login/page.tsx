@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { GraduationCap, Brain } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,25 +19,42 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const supabase = createClientComponentClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      if (error) {
-        setError("Email atau password salah")
-        setIsLoading(false)
-        return
+
+      if (error) throw error
+
+      if (data) {
+        // Insert into settings table if not exists
+        const userId = data.user?.id
+        const emailVal = data.user?.email
+        const fullName = data.user?.user_metadata?.full_name || ""
+        if (userId && emailVal) {
+          const { error: settingsError } = await supabase.from("settings").upsert({
+            id: userId,
+            email: emailVal,
+            full_name: fullName
+          }, { onConflict: "id" })
+          if (settingsError) {
+            // eslint-disable-next-line no-console
+            console.error("Settings insert error:", settingsError)
+          }
+        }
+        router.push("/dashboard")
+        router.refresh()
       }
-      router.push("/dashboard")
-      router.refresh()
     } catch (error: any) {
-      setError(error.message || JSON.stringify(error))
+      setError(error.message)
     } finally {
       setIsLoading(false)
     }

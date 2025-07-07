@@ -17,6 +17,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn")
     window.location.href = "/"
   }
 

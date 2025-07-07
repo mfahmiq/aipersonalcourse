@@ -21,8 +21,6 @@ import { LESSON_CONTENT_PROMPT } from "@/lib/utils/prompts"
 import { useOverlay } from "@/components/OverlayContext"
 import { Portal } from "@/components/Portal"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { supabase } from "@/lib/supabase"
-import Cookies from "js-cookie"
 
 // Tambahkan fungsi delay
 function delay(ms: number) {
@@ -129,8 +127,7 @@ function fixUrlFormat(url: string): string | null {
 }
 
 export default function ViewOutlinePage() {
-  const params = useParams()
-  const id = params.id as string
+  const { id } = useParams()
   const router = useRouter()
   const [outline, setOutline] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("overview")
@@ -141,23 +138,22 @@ export default function ViewOutlinePage() {
   const [regenerateSuccess, setRegenerateSuccess] = useState(false)
   const { isGenerating, setIsGenerating, generationProgress, setGenerationProgress } = useOverlay();
   const supabase = createClientComponentClient();
-  const userId = Cookies.get("user_id");
 
   useEffect(() => {
     const fetchOutline = async () => {
-      const { data, error } = await supabase
-        .from("outlines")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (data) {
-        setOutline(data)
-      } else {
-        router.push("/dashboard/outline")
+      const { data, error } = await supabase.from("outlines").select("*").eq("id", id).single();
+      if (error || !data) {
+        router.push("/dashboard/outline");
+    } else {
+        setOutline({
+          ...data,
+          modulesList: data.modules_detail || [],
+          learningGoals: typeof data.learning_goal === 'string' ? data.learning_goal.split(',').map((g: string) => g.trim()).filter(Boolean) : [],
+        });
       }
-    }
-    fetchOutline()
-  }, [id, router, supabase])
+    };
+    if (id) fetchOutline();
+  }, [id, router]);
 
   const handleEditClick = () => {
     router.push(`/dashboard/outline/${id}/edit`)
@@ -247,34 +243,69 @@ export default function ViewOutlinePage() {
     }
   }
 
+  const handleOpenRegenerateModal = async () => {
+    // Fetch outline terbaru dari Supabase
+    const { data } = await supabase.from("outlines").select("*").eq("id", id).single();
+    if (data) {
+      setRegenerateForm({
+        ...data,
+        level: data.level || "",
+        modules: Array.isArray(data.modules_detail) ? data.modules_detail.length : 0,
+        learningGoals: Array.isArray(data.learning_goal)
+          ? data.learning_goal
+          : (typeof data.learning_goal === "string"
+              ? data.learning_goal.split(",").map((g: string) => g.trim()).filter(Boolean)
+              : []),
+      });
+      setShowRegenerateForm(true);
+    }
+  };
+
   const handleRegenerateOutline = async (inputData?: any) => {
-    const formData = inputData || outline?.originalFormData
+    const formData = inputData || outline?.originalFormData;
     if (!formData) {
-      alert("Original form data not found for regeneration.")
-      return
+      alert("Original form data not found for regeneration.");
+      return;
     }
-    setIsRegenerating(true)
+    setIsRegenerating(true);
     try {
-      const newOutlineData = await generateOutlineContent(formData)
-      // Update the outline in localStorage
-      const savedOutlines = JSON.parse(localStorage.getItem("courseOutlines") || "[]")
-      const updatedOutlines = savedOutlines.map((o: any) =>
-        o.id === outline.id ? { ...newOutlineData, originalFormData: formData } : o
-      )
-      localStorage.setItem("courseOutlines", JSON.stringify(updatedOutlines))
+      const newOutlineData = await generateOutlineContent(formData);
+      // Update the outline in Supabase
+      const { error } = await supabase.from("outlines").update({
+        title: newOutlineData.title,
+        description: newOutlineData.description,
+        topic: newOutlineData.topic,
+        degree: newOutlineData.degree,
+        status: newOutlineData.status,
+        level: newOutlineData.level,
+        duration: newOutlineData.duration,
+        language: newOutlineData.language,
+        overview: newOutlineData.overview,
+        modules: Array.isArray(newOutlineData.modulesList) ? newOutlineData.modulesList.length : 0,
+        lessons: Array.isArray(newOutlineData.modulesList) ? newOutlineData.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0,
+        estimatedhours: newOutlineData.estimatedhours,
+        modules_detail: newOutlineData.modulesList,
+        learning_goal: Array.isArray(newOutlineData.learningGoals) ? newOutlineData.learningGoals.join(', ') : '',
+        updatedAt: new Date().toISOString(),
+      }).eq('id', outline.id);
+      if (error) {
+        alert('Failed to update outline: ' + error.message);
+        setIsRegenerating(false);
+        return;
+      }
       // Update local state
-      setOutline({ ...newOutlineData, originalFormData: formData })
-      setRegenerateSuccess(true)
-      setShowRegenerateForm(false)
+      setOutline({ ...newOutlineData, originalFormData: formData });
+      setRegenerateSuccess(true);
+      setShowRegenerateForm(false);
       setTimeout(() => {
-        setRegenerateSuccess(false)
-        setIsRegenerating(false)
-      }, 2000)
+        setRegenerateSuccess(false);
+        setIsRegenerating(false);
+      }, 2000);
     } catch (error) {
-      alert("Failed to regenerate outline.")
-      setIsRegenerating(false)
+      alert("Failed to regenerate outline.");
+      setIsRegenerating(false);
     }
-  }
+  };
 
   const generateOutlineContent = async (formData: any) => {
     try {
@@ -480,10 +511,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
             variant="outline"
             size="sm"
             className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50"
-            onClick={() => {
-              setRegenerateForm({ ...(outline?.originalFormData || {}) })
-              setShowRegenerateForm(true)
-            }}
+            onClick={handleOpenRegenerateModal}
             disabled={isRegenerating}
           >
             {isRegenerating ? "Regenerating..." : "Regenerate Outline"}
@@ -558,7 +586,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground">{typeof outline.estimatedHours === "number" || typeof outline.estimatedHours === "string" ? outline.estimatedHours : "?"}</div>
+              <div className="text-2xl font-bold text-foreground">{outline.estimatedhours ? `${outline.estimatedhours}h` : "-"}</div>
               <p className="text-sm text-muted-foreground">Est. Duration</p>
             </div>
           </CardContent>

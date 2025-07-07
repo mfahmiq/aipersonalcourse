@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { OverlayProvider } from "@/components/OverlayContext"
-import Cookies from "js-cookie"
+import { supabase } from "@/lib/supabase"
 
 export default function DashboardLayout({
   children,
@@ -16,16 +16,19 @@ export default function DashboardLayout({
   const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/login");
+      }
+    };
+    checkSession();
+  }, [router])
+
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
   }
-
-  useEffect(() => {
-    const userId = Cookies.get("user_id")
-    if (!userId) {
-      router.push("/login")
-    }
-  }, [router])
 
   return (
     <OverlayProvider>
