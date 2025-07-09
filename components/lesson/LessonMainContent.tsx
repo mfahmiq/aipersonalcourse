@@ -11,6 +11,8 @@ import rehypeRaw from "rehype-raw"
 import { YouTubePlayer } from "@/components/ui/youtube-player"
 import { FlashCard } from "./FlashCard"
 import Link from "next/link"
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
+import { coldarkDark } from "react-syntax-highlighter/dist/esm/styles/prism"
 
 interface LessonMainContentProps {
   currentLesson: any
@@ -30,6 +32,53 @@ interface LessonMainContentProps {
   navigateLesson: (dir: "next" | "prev") => void
   contentRef: RefObject<HTMLDivElement>
   setSidebarOpen: (open: boolean) => void
+}
+
+// Fungsi untuk mengekstrak referensi dari konten lesson
+function extractReferencesFromContent(content: string) {
+  // Deteksi section referensi (## Referensi atau Referensi) dan ambil baris-barisnya
+  const match = content.match(/(?:##?\s*Referensi|References?)([\s\S]*)/i);
+  if (!match) return [];
+  const lines = match[1].split(/\n|\r/).map(l => l.trim()).filter(Boolean);
+  // Deteksi url di setiap baris
+  return lines.map(line => {
+    // Ambil url mentah pertama di baris (bukan markdown link)
+    const urlMatch = line.match(/(https?:\/\/[^\s\[\]\(\)]+)/);
+    if (!urlMatch) return null;
+    let url = urlMatch[1];
+    // Validasi url
+    try {
+      const urlObj = new URL(url);
+      if (!['http:', 'https:'].includes(urlObj.protocol)) return null;
+    } catch {
+      return null;
+    }
+    // Ambil judul/tulisan sebelum url
+    let [beforeUrl] = line.split(url);
+    // Hilangkan spasi dan tanda '[' atau '-' di akhir jika ada
+    beforeUrl = beforeUrl.replace(/\s*\[$/, '').replace(/\s*-\s*$/, '').trim();
+    // Ambil nomor referensi jika ada di awal
+    const numMatch = beforeUrl.match(/^\[(\d+)\]/);
+    const number = numMatch ? numMatch[1] : null;
+    return { text: beforeUrl, url, number };
+  }).filter(Boolean);
+}
+
+// Fungsi untuk menghapus section Referensi dari isi lesson
+function removeReferencesSection(content: string) {
+  // Hapus section Referensi (atau References) dan seluruh baris setelahnya
+  return content.replace(/(?:##?\s*Referensi|References?)([\s\S]*)/i, "").trim();
+}
+
+// Fungsi untuk meng-link-kan sitasi [n] ke daftar referensi
+function linkifyCitations(content: string, references: any[]) {
+  // Ganti [n] dengan anchor jika n ada di daftar referensi
+  return content.replace(/\[(\d+)\]/g, (match, num) => {
+    if (references.some(ref => ref.number === num)) {
+      return `<a href="#ref-${num}" class="text-blue-600 underline" style="cursor:pointer">[${num}]</a>`;
+    }
+    return match;
+  });
 }
 
 export const LessonMainContent: React.FC<LessonMainContentProps> = ({
@@ -141,8 +190,18 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
             components={{
               code(props: any) {
                 const {inline, className, children, ...rest} = props;
-                if (inline) {
-                  return <code className={className}>{children}</code>;
+                const match = /language-(\w+)/.exec(className || "");
+                if (!inline && match) {
+                  return (
+                    <SyntaxHighlighter
+                      style={coldarkDark as { [key: string]: React.CSSProperties }}
+                      language={match[1]}
+                      PreTag="div"
+                      {...rest}
+                    >
+                      {String(children).replace(/\n$/, "")}
+                    </SyntaxHighlighter>
+                  );
                 }
                 return <code className={className} {...rest}>{children}</code>;
               },
@@ -154,7 +213,26 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
                 );
               }
             }}
-          >{currentLesson.content}</ReactMarkdown>
+          >{linkifyCitations(removeReferencesSection(currentLesson.content), extractReferencesFromContent(currentLesson.content || ""))}</ReactMarkdown>
+          {/* Render referensi jika ada */}
+          {(() => {
+            const refs = extractReferencesFromContent(currentLesson.content || "");
+            if (refs.length === 0) return null;
+            return (
+              <div className="mt-8 border-t pt-4">
+                <div className="font-semibold mb-2">Referensi</div>
+                <ol className="list-decimal ml-6 space-y-1">
+                  {refs.map((ref: any, idx: number) => (
+                    <li key={idx} id={ref.number ? `ref-${ref.number}` : undefined}>
+                      <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                        {ref.text}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            );
+          })()}
         </div>
       </div>
       {/* Quiz Section */}

@@ -3,9 +3,19 @@ import { OUTLINE_PROMPT, LESSON_CONTENT_PROMPT, LESSON_ASSISTANT_PROMPT } from "
 
 export async function generateOutline(formData: any, apiKey: string) {
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" })
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash-exp",
+    tools: [
+      { googleSearch: {} } as any
+    ],
+    generationConfig: {
+      responseMimeType: 'text/plain',
+    }
+  })
   const prompt = OUTLINE_PROMPT(formData)
-  const result = await model.generateContent(prompt)
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+  })
   const response = result.response
   const text = response.text()
 
@@ -28,16 +38,19 @@ export async function generateOutline(formData: any, apiKey: string) {
 export async function generateLessonContent({ outlineData, module, lesson }: any, apiKey: string, validateAndFixReferences?: (content: string) => Promise<string>) {
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-001",
-    generationConfig: { maxOutputTokens: 8192 },
+    model: "gemini-2.0-flash-exp",
+    tools: [
+      { googleSearch: {} } as any
+    ],
+    generationConfig: {
+      responseMimeType: 'text/plain',
+      maxOutputTokens: 8192,
+      temperature: 0.7,
+    }
   })
   const prompt = LESSON_CONTENT_PROMPT({ outlineData, module, lesson })
   const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      maxOutputTokens: 8192,
-      temperature: 0.7,
-    }
   })
   let content = result.response.text().trim()
   // Gunakan seluruh isi markdown, jangan hanya blok kode
