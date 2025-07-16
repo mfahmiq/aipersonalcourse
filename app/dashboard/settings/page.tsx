@@ -130,49 +130,49 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-white py-8">
-      <div className="w-full max-w-lg bg-white shadow-xl rounded-2xl p-8 border border-zinc-200">
+    <div className="min-h-[80vh] flex items-center justify-center bg-background py-8">
+      <div className="w-full max-w-lg bg-background shadow-xl rounded-2xl p-8 border border-border">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-foreground mb-1 tracking-tight">Pengaturan Profil</h1>
           <p className="text-muted-foreground text-base">Edit informasi akun Anda di bawah ini.</p>
         </div>
         {/* Display current name and email */}
         <div className="mb-6 flex flex-col items-center gap-1">
-          <div className="text-lg font-semibold text-zinc-800">{settings.full_name || "-"}</div>
-          <div className="text-sm text-zinc-500">{settings.email || "-"}</div>
+          <div className="text-lg font-semibold text-foreground">{settings.full_name || "-"}</div>
+          <div className="text-sm text-muted-foreground">{settings.email || "-"}</div>
         </div>
         {message && <div className="mb-4 text-green-600 font-medium text-center animate-fade-in">{message === "Profile updated!" ? "Profil berhasil diperbarui!" : message === "Failed to update profile." ? "Gagal memperbarui profil." : message}</div>}
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Memuat...</div>
+          <div className="text-center py-12 text-muted-foreground">Memuat...</div>
         ) : (
           <form className="space-y-7" onSubmit={e => { e.preventDefault(); handleSaveAll(); }}>
-            <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-5 flex flex-col gap-2 shadow-sm">
-              <label className="block text-sm font-semibold text-zinc-700 mb-1">Nama Lengkap</label>
+            <div className="rounded-xl border border-border bg-muted p-5 flex flex-col gap-2 shadow-sm">
+              <label className="block text-sm font-semibold text-foreground mb-1">Nama Lengkap</label>
               <input
                 type="text"
-                className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-zinc-200 bg-white rounded-lg px-3 py-2 text-base text-foreground placeholder:text-zinc-400 outline-none"
+                className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-border bg-background rounded-lg px-3 py-2 text-base text-foreground placeholder:text-muted-foreground outline-none"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 disabled={loading}
                 placeholder="Nama Anda"
               />
             </div>
-            <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-5 flex flex-col gap-2 shadow-sm">
-              <label className="block text-sm font-semibold text-zinc-700 mb-1">Email</label>
+            <div className="rounded-xl border border-border bg-muted p-5 flex flex-col gap-2 shadow-sm">
+              <label className="block text-sm font-semibold text-foreground mb-1">Email</label>
               <input
                 type="email"
-                className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-zinc-200 bg-white rounded-lg px-3 py-2 text-base text-foreground placeholder:text-zinc-400 outline-none"
+                className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-border bg-background rounded-lg px-3 py-2 text-base text-foreground placeholder:text-muted-foreground outline-none"
                 value={newEmail}
                 onChange={e => setNewEmail(e.target.value)}
                 disabled={loading}
                 placeholder="email@anda.com"
               />
             </div>
-            <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-5 flex flex-col gap-2 shadow-sm">
-              <label className="block text-sm font-semibold text-zinc-700 mb-1">Kata Sandi Baru</label>
+            <div className="rounded-xl border border-border bg-muted p-5 flex flex-col gap-2 shadow-sm">
+              <label className="block text-sm font-semibold text-foreground mb-1">Kata Sandi Baru</label>
               <input
                 type="password"
-                className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-zinc-200 bg-white rounded-lg px-3 py-2 text-base text-foreground placeholder:text-zinc-400 outline-none"
+                className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-border bg-background rounded-lg px-3 py-2 text-base text-foreground placeholder:text-muted-foreground outline-none"
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 disabled={loading}

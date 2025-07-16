@@ -724,7 +724,7 @@ export default function ViewOutlinePage() {
       {showRegenerateForm && regenerateForm && (
         <Portal>
           <div className="fixed inset-0 w-screen h-screen bg-black bg-opacity-40 flex flex-col items-center justify-center" style={{zIndex: 999999}}>
-            <div className="bg-white border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
+            <div className="bg-background border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
               <button
                 type="button"
                 className="absolute top-3 right-3 text-2xl text-blue-600 hover:text-blue-700 transition-colors"
@@ -747,9 +747,9 @@ export default function ViewOutlinePage() {
                   <div className="px-8 pb-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label htmlFor="title" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><GraduationCap className="w-5 h-5 text-blue-600" /> Judul</label>
+                        <label htmlFor="title" className="flex items-center gap-2 font-semibold text-foreground text-base"><GraduationCap className="w-5 h-5 text-blue-600" /> Judul</label>
                         <input
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
                           value={regenerateForm.title || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, title: e.target.value }))}
                           required
@@ -757,45 +757,45 @@ export default function ViewOutlinePage() {
                         />
                       </div>
                       <div>
-                        <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Layers className="w-5 h-5 text-blue-600" /> Bidang Studi</label>
+                        <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-foreground text-base"><Layers className="w-5 h-5 text-blue-600" /> Bidang Studi</label>
                         <input
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
                           value={regenerateForm.degree || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, degree: e.target.value }))}
                           placeholder="Contoh: Informatika"
                         />
                       </div>
                       <div>
-                        <label htmlFor="difficulty" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Tingkat Kesulitan</label>
+                        <label htmlFor="difficulty" className="flex items-center gap-2 font-semibold text-foreground text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Tingkat Kesulitan</label>
                         <input
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
                           value={regenerateForm.difficulty || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, difficulty: e.target.value }))}
                           placeholder="Contoh: Pemula"
                         />
                       </div>
                       <div>
-                        <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</label>
+                        <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-foreground text-base"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</label>
                         <input
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
                           value={regenerateForm.duration || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, duration: e.target.value }))}
                           placeholder="Contoh: 4 minggu"
                         />
                       </div>
                       <div>
-                        <label htmlFor="language" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</label>
+                        <label htmlFor="language" className="flex items-center gap-2 font-semibold text-foreground text-base"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</label>
                         <input
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
                           value={regenerateForm.language || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, language: e.target.value }))}
                           placeholder="Contoh: Indonesia"
                         />
                       </div>
                       <div>
-                        <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Bab</label>
+                        <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-foreground text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Bab</label>
                         <input
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
+                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
                           value={regenerateForm.chapters || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, chapters: e.target.value }))}
                           placeholder="5"
@@ -803,9 +803,9 @@ export default function ViewOutlinePage() {
                       </div>
                     </div>
                     <div className="mt-4">
-                      <label htmlFor="topic" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><FileText className="w-5 h-5 text-blue-600" /> Deskripsi Topik</label>
+                      <label htmlFor="topic" className="flex items-center gap-2 font-semibold text-foreground text-base"><FileText className="w-5 h-5 text-blue-600" /> Deskripsi Topik</label>
                       <textarea
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[100px] mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base resize-y"
+                        className="w-full border border-border rounded-lg px-3 py-2 min-h-[100px] mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background resize-y"
                         value={regenerateForm.topic || ""}
                         onChange={e => setRegenerateForm((f: any) => ({ ...f, topic: e.target.value }))}
                         required

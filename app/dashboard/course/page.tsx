@@ -162,9 +162,8 @@ export default function CoursePage() {
             <div className="text-sm">
               <div className="font-medium text-amber-800 mb-1">Peringatan Konten AI</div>
               <div className="text-amber-700">
-                Beberapa kursus di daftar ini dibuat dengan AI menggunakan informasi web terkini untuk akurasi informasi.
-                Meskipun konten telah diverifikasi dari sumber terpercaya,
-                <strong> mohon periksa kembali informasi yang disajikan untuk memastikan relevansi dengan kebutuhan Anda.</strong>
+                Kursus di daftar ini dibuat dengan AI yang memiliki kelemahan Halusinasi informasi.
+                <strong> Mohon periksa kembali informasi yang disajikan untuk memastikan kebenaran informasi dan relevansi dengan kebutuhan Anda.</strong>
               </div>
             </div>
           </div>
