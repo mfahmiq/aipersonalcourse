@@ -282,23 +282,20 @@ export default function CoursePage() {
                   <Button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
                     onClick={async () => {
-                      if (course.type === "generated") {
-                        // Fetch UUID lesson pertama dari Supabase
-                        const { data: firstLesson, error } = await supabase
-                          .from("course_chapters")
-                          .select("id")
-                          .eq("course_id", realId)
-                          .order("id", { ascending: true })
-                          .limit(1)
-                          .single();
-                        if (error || !firstLesson) {
-                          alert("Tidak dapat menemukan lesson pertama untuk course ini.");
-                          return;
-                        }
-                        router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
-                      } else {
-                        router.push(`/dashboard/course/${realId}`);
+                      // Fetch UUID lesson pertama dari Supabase
+                      const { data: firstLesson, error } = await supabase
+                        .from("course_chapters")
+                        .select("id")
+                        .eq("course_id", realId)
+                        .order("module_number", { ascending: true })
+                        .order("number", { ascending: true })
+                        .limit(1)
+                        .single();
+                      if (error || !firstLesson) {
+                        alert("Tidak dapat menemukan lesson pertama untuk course ini.");
+                        return;
                       }
+                      router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
                     }}
                   >
                     Mulai Kursus
@@ -307,23 +304,20 @@ export default function CoursePage() {
                   <Button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
                     onClick={async () => {
-                      if (course.type === "generated") {
-                        // Fetch UUID lesson pertama dari Supabase
-                        const { data: firstLesson, error } = await supabase
-                          .from("course_chapters")
-                          .select("id")
-                          .eq("course_id", realId)
-                          .order("id", { ascending: true })
-                          .limit(1)
-                          .single();
-                        if (error || !firstLesson) {
-                          alert("Tidak dapat menemukan lesson pertama untuk course ini.");
-                          return;
-                        }
-                        router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
-                      } else {
-                        router.push(`/dashboard/course/${realId}`);
+                      // Fetch UUID lesson pertama dari Supabase
+                      const { data: firstLesson, error } = await supabase
+                        .from("course_chapters")
+                        .select("id")
+                        .eq("course_id", realId)
+                        .order("module_number", { ascending: true })
+                        .order("number", { ascending: true })
+                        .limit(1)
+                        .single();
+                      if (error || !firstLesson) {
+                        alert("Tidak dapat menemukan lesson pertama untuk course ini.");
+                        return;
                       }
+                      router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
                     }}
                   >
                     Lanjutkan
@@ -332,23 +326,20 @@ export default function CoursePage() {
                   <Button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
                     onClick={async () => {
-                      if (course.type === "generated") {
-                        // Fetch UUID lesson pertama dari Supabase
-                        const { data: firstLesson, error } = await supabase
-                          .from("course_chapters")
-                          .select("id")
-                          .eq("course_id", realId)
-                          .order("id", { ascending: true })
-                          .limit(1)
-                          .single();
-                        if (error || !firstLesson) {
-                          alert("Tidak dapat menemukan lesson pertama untuk course ini.");
-                          return;
-                        }
-                        router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
-                      } else {
-                        router.push(`/dashboard/course/${realId}`);
+                      // Fetch UUID lesson pertama dari Supabase
+                      const { data: firstLesson, error } = await supabase
+                        .from("course_chapters")
+                        .select("id")
+                        .eq("course_id", realId)
+                        .order("module_number", { ascending: true })
+                        .order("number", { ascending: true })
+                        .limit(1)
+                        .single();
+                      if (error || !firstLesson) {
+                        alert("Tidak dapat menemukan lesson pertama untuk course ini.");
+                        return;
                       }
+                      router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
                     }}
                   >
                     Tinjau
