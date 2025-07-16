@@ -827,20 +827,20 @@ export default function ViewOutlinePage() {
 
       {isRegenerating && (
         <Portal>
-          <div className="fixed inset-0 w-screen h-screen bg-black bg-opacity-50 flex flex-col items-center justify-center" style={{zIndex: 999999, pointerEvents: 'auto', top: 0, left: 0, right: 0, bottom: 0}}>
-            <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center animate-fadeIn min-w-[320px] max-w-xs">
+          <div className="fixed inset-0 w-screen h-screen bg-black/50 dark:bg-black/70 flex flex-col items-center justify-center" style={{zIndex: 999999, pointerEvents: 'auto', top: 0, left: 0, right: 0, bottom: 0}}>
+            <div className="bg-background p-8 rounded-2xl shadow-2xl flex flex-col items-center animate-fadeIn min-w-[320px] max-w-xs border border-border">
               {regenerateSuccess ? (
                 <>
                   <div className="w-12 h-12 mb-4 flex items-center justify-center">
-                    <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                   </div>
-                  <div className="text-lg font-bold mb-2 text-blue-600">Regenerasi Outline Berhasil!</div>
+                  <div className="text-lg font-bold mb-2 text-primary">Regenerasi Outline Berhasil!</div>
                   <div className="text-muted-foreground text-sm text-center">Outline berhasil diperbarui.</div>
                 </>
               ) : (
                 <>
                   <div className="w-12 h-12 mb-4 flex items-center justify-center">
-                    <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
                   </div>
                   <div className="text-lg font-bold mb-2 text-foreground">Regenerasi outline...</div>
                   <div className="text-muted-foreground text-sm text-center">AI sedang membuat outline kursus baru Anda. Mohon tunggu sebentar.</div>

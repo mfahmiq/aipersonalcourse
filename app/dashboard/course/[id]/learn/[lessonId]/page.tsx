@@ -358,6 +358,22 @@ export default function LessonPage() {
     setSidebarOpen(!sidebarOpen)
   }
 
+  // Fungsi navigasi lesson sebelumnya/berikutnya
+  const navigateLesson = (dir: "next" | "prev") => {
+    // Flatten all lessons
+    const flatLessons = Array.isArray(allLessons) && allLessons[0]?.lessons
+      ? allLessons.flatMap((mod: any) => mod.lessons)
+      : allLessons;
+    const currentIdx = flatLessons.findIndex((l: any) => l.id === currentLesson?.id);
+    if (currentIdx === -1) return;
+    let targetIdx = dir === "next" ? currentIdx + 1 : currentIdx - 1;
+    if (targetIdx < 0 || targetIdx >= flatLessons.length) return;
+    const targetLesson = flatLessons[targetIdx];
+    if (targetLesson && targetLesson.id) {
+      router.push(`/dashboard/course/${courseId}/learn/${targetLesson.id}`);
+    }
+  };
+
   // Setelah setCourse, pastikan allLessons diisi dan log
   useEffect(() => {
     if (course) {
@@ -428,7 +444,7 @@ export default function LessonPage() {
           completedLessons={completedLessons}
           markAsComplete={markAsComplete}
           allLessons={allLessons}
-          navigateLesson={() => {}} // No navigation for quiz
+          navigateLesson={navigateLesson}
           contentRef={contentRef as React.RefObject<HTMLDivElement>}
           setSidebarOpen={setSidebarOpen}
         />
