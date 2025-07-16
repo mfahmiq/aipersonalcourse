@@ -47,7 +47,6 @@ Course Info:
 - Duration: ${outlineData.duration}
 - Language: ${outlineData.language}
 
-
 Module Info:
 - Title: ${module.title}
 
@@ -60,32 +59,27 @@ Rules:
 2. If no valid source exists, DO NOT mention the information.
 3. Include full reference list at the end using valid URLs only.
 4. Use proper **Markdown formatting** with the following structure:
-   ### Introduction
+   - Use headings (###) that are specific and relevant to the lesson content, such as "1. Sejarah Cloud Computing", "2. Manfaat Cloud Computing", "3. Langkah Implementasi Cloud", dst. **Always add numbering in front of each heading.**
+   - **Do NOT use generic or template headings** such as "Introduction", "Basic Concepts", "Detailed Explanation", "Real-world Examples", "Code Samples (if applicable)", "Best Practices", "Common Pitfalls", or "Summary". Only use headings that are truly relevant to the material.
    - Introduce the topic with relevance and purpose
-   ### Basic Concepts
    - Explain theoretical foundations or key ideas
-   ### Detailed Explanation
    - Break down main topic into sections
-   ### Real-world Examples
    - Provide clear examples or use cases
-   ### Code Samples (if applicable)
-   - Use fenced code blocks (e.g., \`\`\`python ... \`\`\`)
-   ### Best Practices
+   - Use fenced code blocks (e.g., three backticks followed by python ... three backticks) for code samples if applicable
    - Offer practical tips or dos and don'ts
-   ### Common Pitfalls
    - Highlight mistakes to avoid with solutions
-   ### Summary
-   - Recap important points
-   ### References
-   - List complete sources like this:
-     [1] "Title" - Author - URL
+   - Recap important points at the end (without using the heading "Summary")
+   - List complete sources at the end as references
 5. Expand each section with as much detail as possible, including background, context, and advanced insights.
 6. The article should be as long and comprehensive as possible, aiming for at least 1500 words.
+7. Use the same language as the user's input
 
 Formatting Notes:
 - Use bullet points (- ) or numbered lists (1.) where applicable
-- Always use ### for headings and \`\`\` for code blocks
+- Always use ### for headings and three backticks for code blocks
+- **Setiap heading utama harus diawali dengan nomor urut (misal: 1. Judul, 2. Judul, dst)**
 - Do not return text outside the lesson article (no assistant remarks)
+- Headings must be specific to the lesson content, not generic templates
 `;
 
 // Prompt untuk AI Assistant (chat lesson)

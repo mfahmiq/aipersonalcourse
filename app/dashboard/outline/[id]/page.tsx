@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, BookOpen, Clock, Share2, Download, Edit, Play, Target, CheckCircle2, FileText, GraduationCap, Layers, Globe, ListOrdered, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GoogleGenerativeAI } from "@google/generative-ai"
-import { v4 as uuidv4 } from "uuid"
+import { v4 as uuidv4, validate as uuidValidate } from "uuid"
 import { safeParseJSON } from "@/lib/utils/jsonUtils"
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
@@ -21,6 +21,7 @@ import { useOverlay } from "@/components/OverlayContext"
 import { Portal } from "@/components/Portal"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { OUTLINE_PROMPT } from "@/lib/utils/prompts";
+import { LESSON_CONTENT_PROMPT } from "@/lib/utils/prompts";
 
 // Tambahkan fungsi delay
 function delay(ms: number) {
@@ -154,6 +155,34 @@ function convertDurationToHours(duration: string): string {
   return duration;
 }
 
+// Fungsi untuk generate konten lesson menggunakan Gemini
+async function generateLessonContentGemini({ outlineData, module, lesson }: any) {
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) throw new Error("Gemini API key tidak ditemukan di environment variable");
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash-001",
+    generationConfig: {
+      maxOutputTokens: 8192,
+      temperature: 0.7,
+    },
+  });
+  const prompt = LESSON_CONTENT_PROMPT({ outlineData, module, lesson });
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: 8192,
+      temperature: 0.7,
+    }
+  });
+  const content = result.response.text().trim();
+  return {
+    id: lesson.id,
+    title: lesson.title,
+    content,
+  };
+}
+
 export default function ViewOutlinePage() {
   const { id } = useParams()
   const router = useRouter()
@@ -209,12 +238,17 @@ export default function ViewOutlinePage() {
         return;
       }
       // Insert course ke tabel 'courses'
+      // Pastikan outline.id adalah UUID valid
+      let outlineIdToUse = outline.id;
+      if (!uuidValidate(outlineIdToUse)) {
+        outlineIdToUse = uuidv4();
+      }
       const { data: courseInsert, error: courseError } = await supabase
         .from("courses")
         .insert([
           {
             user_id: userId,
-            outline_id: outline.id,
+            outline_id: outlineIdToUse,
             title: outline.title,
             description: outline.description,
             level: outline.level,

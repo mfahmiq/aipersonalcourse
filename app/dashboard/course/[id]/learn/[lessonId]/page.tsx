@@ -141,10 +141,6 @@ export default function LessonPage() {
   const [allLessons, setAllLessons] = useState<any[]>([])
   const [progress, setProgress] = useState(0)
   const [completedLessons, setCompletedLessons] = useState<string[]>([])
-  const [showQuiz, setShowQuiz] = useState(false)
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({})
-  const [quizSubmitted, setQuizSubmitted] = useState(false)
-  const [quizScore, setQuizScore] = useState(0)
   const [showAssistant, setShowAssistant] = useState(false)
   const [assistantMessage, setAssistantMessage] = useState("")
   const [userMessage, setUserMessage] = useState("")
@@ -265,56 +261,6 @@ export default function LessonPage() {
     }
   }, [course, currentLesson, allLessons]);
 
-  // Generate quiz questions for a lesson
-  const generateQuiz = (lessonTitle: string, numQuestions = 5) => {
-    const questions = [
-      {
-        question: `Apa fokus utama dari "${lessonTitle}"?`,
-        options: [
-          "Pemahaman konsep teoretis",
-          "Implementasi praktis",
-          "Pemahaman teoretis dan aplikasi praktis",
-          "Pengembangan sejarah",
-        ],
-        correct: 2,
-      },
-      {
-        question: `Manakah yang paling tepat menggambarkan pendekatan yang digunakan dalam "${lessonTitle}"?`,
-        options: ["Metode top-down", "Pendekatan bottom-up", "Metode hibrida", "Pendekatan eksperimental"],
-        correct: 2,
-      },
-      {
-        question: `Apa keuntungan utama dari menguasai konsep dalam "${lessonTitle}"?`,
-        options: [
-          "Kemampuan problem-solving yang ditingkatkan",
-          "Pemahaman yang lebih baik tentang topik terkait",
-          "Aplikasi praktis dalam skenario dunia nyata",
-          "Semua di atas",
-        ],
-        correct: 3,
-      },
-      {
-        question: `Skill apa yang paling penting saat bekerja dengan "${lessonTitle.split(" ").slice(0, 3).join(" ")}"?`,
-        options: ["Pemikiran analitik", "Perhatian terhadap detail", "Pemecahan masalah kreatif", "Keahlian teknis"],
-        correct: 0,
-      },
-      {
-        question: `Bagaimana "${lessonTitle}" berhubungan dengan topik lain dalam kursus ini?`,
-        options: [
-          "Ini merupakan prasyarat untuk topik lanjutan",
-          "Ini membangun pemahaman dari konsep sebelumnya",
-          "Ini merupakan topik mandiri",
-          "Ini memberikan kerangka untuk memahami seluruh subjek",
-        ],
-        correct: 1,
-      },
-    ]
-
-    return {
-      questions: questions.slice(0, numQuestions),
-    }
-  }
-
   // Mark lesson as complete
   const markAsComplete = async () => {
     if (!currentLesson || !course) return;
@@ -350,41 +296,6 @@ export default function LessonPage() {
       console.log("Course progress and completed lessons updated in Supabase");
     } catch (err: any) {
       console.error("Error updating course progress in Supabase:", err);
-    }
-  };
-
-  // Handle quiz submission
-  const handleQuizSubmit = () => {
-    if (!currentLesson?.quiz) return
-
-    // Calculate score
-    let correctAnswers = 0
-    currentLesson.quiz.questions.forEach((q: any, idx: number) => {
-      if (quizAnswers[idx] === q.correct) {
-        correctAnswers++
-      }
-    })
-
-    const score = Math.round((correctAnswers / currentLesson.quiz.questions.length) * 100)
-    setQuizScore(score)
-    setQuizSubmitted(true)
-  }
-
-  // Flatten all lessons for navigation
-  const flatLessons = Array.isArray(allLessons) && allLessons[0]?.lessons
-    ? allLessons.flatMap((mod: any) => mod.lessons)
-    : allLessons;
-
-  // Navigate to next or previous lesson
-  const navigateLesson = (direction: "next" | "prev") => {
-    if (!currentLesson || !flatLessons.length) return;
-    const currentIdx = flatLessons.findIndex((l: any) => l.id === currentLesson.id);
-    if (currentIdx === -1) return;
-    let targetIdx = direction === "next" ? currentIdx + 1 : currentIdx - 1;
-    if (targetIdx < 0 || targetIdx >= flatLessons.length) return;
-    const targetLesson = flatLessons[targetIdx];
-    if (targetLesson) {
-      router.push(`/dashboard/course/${courseId}/learn/${targetLesson.id}`);
     }
   };
 
@@ -517,7 +428,7 @@ export default function LessonPage() {
           completedLessons={completedLessons}
           markAsComplete={markAsComplete}
           allLessons={allLessons}
-          navigateLesson={navigateLesson}
+          navigateLesson={() => {}} // No navigation for quiz
           contentRef={contentRef as React.RefObject<HTMLDivElement>}
           setSidebarOpen={setSidebarOpen}
         />

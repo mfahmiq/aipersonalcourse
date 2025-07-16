@@ -76,14 +76,7 @@ function linkifyCitations(content: string, references: any[]) {
 function cleanLessonContent(content: string) {
   // Hilangkan section kosong dan header yang tidak diikuti konten
   let cleaned = content
-    // Hapus header yang berdiri sendiri tanpa konten
-    .replace(/^(#+)\s*(Introduction|Basic Concepts|Detailed Explanation|Best Practices|Summary)\s*$/gim, '')
-    // Ubah header biasa menjadi h2/h3 agar lebih rapi
-    .replace(/^#+\s*Introduction\s*$/gim, '## Pendahuluan')
-    .replace(/^#+\s*Basic Concepts\s*$/gim, '## Konsep Dasar')
-    .replace(/^#+\s*Detailed Explanation\s*$/gim, '## Penjelasan Detail')
-    .replace(/^#+\s*Best Practices\s*$/gim, '## Praktik Terbaik')
-    .replace(/^#+\s*Summary\s*$/gim, '## Ringkasan');
+  
   // Tambahkan jarak antar paragraf, tapi jangan di dalam blok tabel
   const lines = cleaned.split('\n');
   let result = [];
@@ -122,26 +115,7 @@ function removeCommonPitfallsHeading(content: string) {
 }
 
 // Fungsi untuk menghapus heading tertentu dari konten lesson
-function removeUnwantedHeadings(content: string) {
-  // Daftar heading yang ingin dihapus
-  const headings = [
-    'Common Pitfalls',
-    'Introduction',
-    'Basic Concepts',
-    'Detailed Explanation',
-    'Real-world Examples',
-    'Code Samples (if applicable)',
-    'Best Practices',
-    'Summary',
-  ];
-  let cleaned = content;
-  for (const heading of headings) {
-    // Hapus baris header seperti '# Heading', '## Heading', dst.
-    const regex = new RegExp(`^#{1,6}\\s*${heading}\\s*$`, 'gim');
-    cleaned = cleaned.replace(regex, '');
-  }
-  return cleaned;
-}
+
 
 // Fungsi untuk menambah dua baris kosong antar paragraf
 function addDoubleSpacingBetweenParagraphs(content: string) {
@@ -150,9 +124,7 @@ function addDoubleSpacingBetweenParagraphs(content: string) {
   return content.replace(/([^\n])\n(?=[^\n])/g, '$1\n\n');
 }
 
-type OmittedProps = Omit<LessonMainContentProps, 'showQuiz' | 'setShowQuiz' | 'quizAnswers' | 'setQuizAnswers' | 'quizSubmitted' | 'setQuizSubmitted' | 'quizScore' | 'setQuizScore'>;
-
-export const LessonMainContent: React.FC<OmittedProps> = ({
+export const LessonMainContent: React.FC<LessonMainContentProps> = ({
   currentLesson,
   course,
   progress,

@@ -82,7 +82,6 @@ create table course_chapters (
   title text not null,
   content text,
   video_url text,
-  quiz jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()),
   updated_at timestamp with time zone default timezone('utc'::text, now())
 );
