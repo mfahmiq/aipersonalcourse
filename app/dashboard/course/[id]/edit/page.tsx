@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useRef } from "react"
 
 interface CourseData {
   courseId?: string
@@ -22,6 +23,7 @@ interface CourseData {
   lessons: number
   modules: any[]
   createdAt: string
+  image?: string
 }
 
 export default function EditCoursePage() {
@@ -39,6 +41,9 @@ export default function EditCoursePage() {
     level: "",
     duration: ""
   })
+  const [imageUrl, setImageUrl] = useState<string>(course?.image || "/placeholder.svg")
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -68,6 +73,7 @@ export default function EditCoursePage() {
         level: (courseData as CourseData).level || "Pemula",
         duration: (courseData as CourseData).duration || "8 minggu"
       });
+      setImageUrl(courseData.image || "/placeholder.svg")
       setLoading(false);
     };
     fetchCourse();
@@ -91,6 +97,30 @@ export default function EditCoursePage() {
       alert("Failed to save course. Please try again.")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !course) return
+    setUploading(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const filePath = `course-images/${course.id}-${Date.now()}.${fileExt}`
+      // Upload ke Supabase Storage
+      let { error: uploadError } = await supabase.storage.from('gambar').upload(filePath, file, { upsert: true })
+      if (uploadError) throw uploadError
+      // Get public URL
+      const { data } = supabase.storage.from('gambar').getPublicUrl(filePath)
+      if (!data?.publicUrl) throw new Error('Gagal mendapatkan URL gambar')
+      setImageUrl(data.publicUrl)
+      // Update field image di tabel courses
+      await supabase.from('courses').update({ image: data.publicUrl }).eq('id', course.id)
+      alert('Gambar berhasil diupload!')
+    } catch (err) {
+      alert('Gagal upload gambar')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -135,6 +165,21 @@ export default function EditCoursePage() {
           <CardTitle>Detail Kursus</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Upload/Preview Gambar */}
+          <div className="space-y-2 flex flex-col items-center">
+            <img src={imageUrl} alt={formData.title || "Course Image"} className="w-full max-w-xs h-48 object-cover rounded-lg border mb-2" />
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleImageChange}
+            />
+            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              {uploading ? "Mengupload..." : "Ganti Gambar"}
+            </Button>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="title">Judul Kursus</Label>
             <Input

@@ -70,7 +70,7 @@ export default function CoursePage() {
         level: course.level ?? "",
         status: course.progress === 100 ? "Completed" : course.progress > 0 ? "In Progress" : "Not Started",
         type: course.type ?? "",
-        image: "/placeholder.svg?height=200&width=300",
+        image: course.image || "/placeholder.svg?height=200&width=300",
         createdAt: course.created_at
       }));
       setCourses(formattedCourses);

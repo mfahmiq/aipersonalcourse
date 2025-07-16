@@ -390,7 +390,8 @@ export default function ViewOutlinePage() {
     try {
       const newOutlineData = await generateOutlineContent(formData);
       // Update the outline in Supabase
-      const { error } = await supabase.from("outlines").update({
+      // Pastikan hanya UUID valid yang dikirim ke kolom UUID
+      let updatePayload = {
         title: newOutlineData.title,
         description: newOutlineData.description,
         topic: newOutlineData.topic,
@@ -403,7 +404,9 @@ export default function ViewOutlinePage() {
         lessons: Array.isArray(newOutlineData.modulesList) ? newOutlineData.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0,
         modules_detail: newOutlineData.modulesList,
         updatedAt: new Date().toISOString(),
-      }).eq('id', outline.id);
+      };
+      // Sudah tidak ada assignment ke updatePayload untuk 'id' dan 'user_id'.
+      const { error } = await supabase.from("outlines").update(updatePayload).eq('id', outline.id);
       if (error) {
         alert('Failed to update outline: ' + error.message);
         setIsRegenerating(false);
