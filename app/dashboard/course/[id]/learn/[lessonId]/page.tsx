@@ -22,6 +22,7 @@ import { LessonMainContent } from "@/components/lesson/LessonMainContent"
 import { LessonAssistant } from "@/components/lesson/LessonAssistant"
 import { LESSON_ASSISTANT_PROMPT } from "@/lib/utils/prompts"
 import { generateLessonAssistant } from "@/lib/utils/gemini"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 // Fungsi untuk membersihkan markdown
 function cleanMarkdown(md: string) {
@@ -152,132 +153,104 @@ export default function LessonPage() {
 
   const contentRef = useRef<HTMLDivElement>(null)
 
+  const supabase = createClientComponentClient();
+
   // Load course data and current lesson
   useEffect(() => {
-    // First check if it's a default course or generated course
-    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-    const course = generatedCourses.find((c: any) => c.courseId === courseId || c.id === courseId)
+    // Fetch course data from Supabase
+    const fetchCourseAndLessons = async () => {
+      try {
+        // Get current user session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.user?.id) {
+          router.push("/login");
+          return;
+        }
+        const userId = session.user.id;
+        // Fetch course
+        const { data: courseData, error: courseError } = await supabase.from("courses").select("*").eq("id", courseId).single();
+        if (courseError) {
+          console.error("Error fetching course:", courseError, "courseId:", courseId);
+          router.push("/dashboard/course");
+          return;
+        }
+        if (!courseData) {
+          console.error("No course data found for courseId:", courseId);
+          router.push("/dashboard/course");
+          return;
+        }
+        // Access control: Only owner can access
+        if (courseData.user_id !== userId) {
+          alert("Anda tidak memiliki akses ke kursus ini.");
+          router.push("/dashboard/course");
+          return;
+        }
+        const validatedCourse = {
+          ...courseData,
+          courseId: courseData.id,
+          title: courseData.title || "Kursus Tanpa Judul",
+          description: courseData.description || "Tidak ada deskripsi",
+        };
+        setCourse(validatedCourse);
 
-    if (course) {
-      // Ensure course has required fields
-      const validatedCourse = {
-        ...course,
-        courseId: course.courseId || course.id,
-        title: course.title || "Untitled Course",
-        description: course.description || "No description available",
-        chapters: Array.isArray(course.chapters) ? course.chapters : [],
-      }
-      setCourse(validatedCourse)
-
-      // Create flat list of all lessons
-      const allLessonsArray: any[] = []
-      const moduleIndex = 0
-
-      // For generated courses, we need to create a lesson structure from chapters
-      if (validatedCourse.chapters && validatedCourse.chapters.length > 0) {
-        const modules = [
-          {
-            id: "introduction",
-            title: "Introduction to " + validatedCourse.title,
-            lessons: validatedCourse.chapters
-              .slice(0, Math.ceil(validatedCourse.chapters.length / 2))
-              .map((chapter: any, idx: number) => ({
-                id: `1.${idx + 1}`,
-                title: chapter.title.replace(/^Module \d+: /, ""),
-                duration: `${15 + idx * 5} min`,
-                content: chapter.content,
-                videoUrl: chapter.videoUrl,
-                moduleId: "introduction",
-                moduleIndex: 0,
-                lessonIndex: idx,
-                quiz: generateQuiz(chapter.title, 5),
-                courseId: validatedCourse.courseId,
-              })),
-          },
-          {
-            id: "advanced",
-            title: "Advanced Topics",
-            lessons: validatedCourse.chapters.slice(Math.ceil(validatedCourse.chapters.length / 2)).map((chapter: any, idx: number) => ({
-              id: `2.${idx + 1}`,
-              title: chapter.title.replace(/^Module \d+: /, ""),
-              duration: `${20 + idx * 5} min`,
-              content: chapter.content,
-              videoUrl: chapter.videoUrl,
-              moduleId: "advanced",
-              moduleIndex: 1,
-              lessonIndex: idx,
-              quiz: generateQuiz(chapter.title, 5),
-              courseId: validatedCourse.courseId,
-            })),
-          },
-        ]
-
-        // Flatten lessons for navigation
-        modules.forEach((module, mIdx) => {
-          module.lessons.forEach((lesson: any) => {
-            allLessonsArray.push({
-              ...lesson,
-              moduleTitle: module.title,
-              moduleId: module.id,
-              moduleIndex: mIdx,
-              courseId: validatedCourse.courseId,
-            })
-          })
-        })
-
-        // Find current lesson and module
-        const currentLessonObj = allLessonsArray.find((l) => l.id === currentLessonId)
-        if (currentLessonObj) {
-          setCurrentLesson(currentLessonObj)
-          setCurrentModule(modules[currentLessonObj.moduleIndex])
-
-          // Update recent courses in localStorage
-          try {
-            const recentCourses = JSON.parse(localStorage.getItem("recentCourses") || "[]")
-            const updatedRecentCourses = recentCourses.filter((item: any) => item.courseId !== courseId)
-            updatedRecentCourses.unshift({
-              courseId: course.id,
-              courseTitle: course.title,
-              lastViewedLessonId: currentLessonObj.id,
-              lastViewedLessonTitle: currentLessonObj.title,
-              progress: progress,
-              timestamp: Date.now(),
-            })
-            // Keep only the last 10 recent courses
-            localStorage.setItem("recentCourses", JSON.stringify(updatedRecentCourses.slice(0, 10)))
-          } catch (error) {
-            console.error("Failed to update recent courses in localStorage:", error)
-          }
-
-        } else if (allLessonsArray.length > 0) {
-          // If lesson not found, redirect to first lesson
-          router.push(`/dashboard/course/${courseId}/learn/${allLessonsArray[0].id}`)
+        // Fetch lessons from course_chapters
+        const { data: chapters, error: chaptersError } = await supabase
+          .from("course_chapters")
+          .select("*")
+          .eq("course_id", courseId)
+          .order("module_number", { ascending: true })
+          .order("number", { ascending: true });
+        if (chaptersError) {
+          console.error("Error fetching course chapters:", chaptersError);
+          setAllLessons([]);
+          return;
         }
 
-        setAllLessons(allLessonsArray)
+        // Group chapters by module_title
+        const modulesMap: Record<string, any[]> = {};
+        chapters.forEach((chapter: any) => {
+          const modTitle = chapter.module_title || 'Module';
+          if (!modulesMap[modTitle]) modulesMap[modTitle] = [];
+          modulesMap[modTitle].push({
+            id: chapter.id,
+            title: chapter.title,
+            number: chapter.number,
+            duration: chapter.duration || "15 min",
+            content: chapter.content,
+            videoUrl: chapter.video_url,
+            moduleId: modTitle,
+            moduleTitle: modTitle,
+            courseId: validatedCourse.courseId,
+          });
+        });
+        const modules = Object.entries(modulesMap).map(([title, lessons], idx) => ({
+          title,
+          lessons: lessons.slice().sort((a: any, b: any) => (a.number || '').localeCompare(b.number || '')),
+        }));
+        setAllLessons(modules);
+
+        // Set current lesson by lessonOrder (for navigation), but use UUID for id
+        const foundLesson = allLessons.find((mod) => mod.lessons.find((l: any) => String(l.lessonOrder) === String(currentLessonId) || String(l.id) === String(currentLessonId)));
+        if (foundLesson) {
+          setCurrentLesson(foundLesson.lessons.find((l: any) => String(l.lessonOrder) === String(currentLessonId) || String(l.id) === String(currentLessonId)));
+          setCurrentModule(foundLesson);
+        } else if (allLessons.length > 0) {
+          // If lesson not found, redirect to first lesson
+          router.push(`/dashboard/course/${courseId}/learn/${allLessons[0].lessons[0].lessonOrder}`);
+        }
+
+        // Set completed lessons from course.completed_lessons
+        setCompletedLessons(courseData.completed_lessons || []);
+
+        // Calculate progress from courseData.progress
+        setProgress(courseData.progress ?? 0);
+      } catch (error) {
+        console.error("Error fetching course or lessons:", error);
+        router.push("/dashboard/course");
       }
-
-      // Load completed lessons from localStorage
-      const savedProgress = JSON.parse(localStorage.getItem(`course_progress_${courseId}`) || '{"completed": []}')
-      setCompletedLessons(savedProgress.completed || [])
-
-      // Calculate progress
-      if (allLessonsArray.length > 0) {
-        const progressPercentage = ((savedProgress.completed?.length || 0) / allLessonsArray.length) * 100
-        setProgress(progressPercentage)
-      }
-    } else {
-      // Course not found, redirect to courses page
-      router.push("/dashboard/course")
-    }
-
-    // Debug log
-    console.log('course', course);
-    console.log('allLessons', allLessons);
-    console.log('currentLessonId', currentLessonId);
-    const foundLesson = allLessons.find((l) => String(l.id) === String(currentLessonId));
-    console.log('foundLesson', foundLesson);
-  }, [courseId, currentLessonId, router])
+    };
+    fetchCourseAndLessons();
+  }, [courseId, currentLessonId, router]);
 
   // Debug: log course, currentLesson, allLessons
   useEffect(() => {
@@ -296,42 +269,42 @@ export default function LessonPage() {
   const generateQuiz = (lessonTitle: string, numQuestions = 5) => {
     const questions = [
       {
-        question: `What is the main focus of "${lessonTitle}"?`,
+        question: `Apa fokus utama dari "${lessonTitle}"?`,
         options: [
-          "Understanding theoretical concepts",
-          "Practical implementation",
-          "Both theory and practical application",
-          "Historical development",
+          "Pemahaman konsep teoretis",
+          "Implementasi praktis",
+          "Pemahaman teoretis dan aplikasi praktis",
+          "Pengembangan sejarah",
         ],
         correct: 2,
       },
       {
-        question: `Which of the following best describes the approach used in "${lessonTitle}"?`,
-        options: ["Top-down methodology", "Bottom-up approach", "Hybrid methodology", "Experimental approach"],
+        question: `Manakah yang paling tepat menggambarkan pendekatan yang digunakan dalam "${lessonTitle}"?`,
+        options: ["Metode top-down", "Pendekatan bottom-up", "Metode hibrida", "Pendekatan eksperimental"],
         correct: 2,
       },
       {
-        question: `What is a key benefit of mastering the concepts in "${lessonTitle}"?`,
+        question: `Apa keuntungan utama dari menguasai konsep dalam "${lessonTitle}"?`,
         options: [
-          "Improved problem-solving skills",
-          "Better understanding of related topics",
-          "Practical application in real-world scenarios",
-          "All of the above",
+          "Kemampuan problem-solving yang ditingkatkan",
+          "Pemahaman yang lebih baik tentang topik terkait",
+          "Aplikasi praktis dalam skenario dunia nyata",
+          "Semua di atas",
         ],
         correct: 3,
       },
       {
-        question: `Which skill is most important when working with "${lessonTitle.split(" ").slice(0, 3).join(" ")}"?`,
-        options: ["Analytical thinking", "Attention to detail", "Creative problem solving", "Technical expertise"],
+        question: `Skill apa yang paling penting saat bekerja dengan "${lessonTitle.split(" ").slice(0, 3).join(" ")}"?`,
+        options: ["Pemikiran analitik", "Perhatian terhadap detail", "Pemecahan masalah kreatif", "Keahlian teknis"],
         correct: 0,
       },
       {
-        question: `How does "${lessonTitle}" relate to other topics in this course?`,
+        question: `Bagaimana "${lessonTitle}" berhubungan dengan topik lain dalam kursus ini?`,
         options: [
-          "It's a prerequisite for advanced topics",
-          "It builds on previous concepts",
-          "It's a standalone topic",
-          "It provides a framework for understanding the entire subject",
+          "Ini merupakan prasyarat untuk topik lanjutan",
+          "Ini membangun pemahaman dari konsep sebelumnya",
+          "Ini merupakan topik mandiri",
+          "Ini memberikan kerangka untuk memahami seluruh subjek",
         ],
         correct: 1,
       },
@@ -343,69 +316,42 @@ export default function LessonPage() {
   }
 
   // Mark lesson as complete
-  const markAsComplete = () => {
-    if (!currentLesson || !course) return
+  const markAsComplete = async () => {
+    if (!currentLesson || !course) return;
 
-    const updatedCompleted = [...completedLessons]
+    const updatedCompleted = [...completedLessons];
     if (!updatedCompleted.includes(currentLesson.id)) {
-      updatedCompleted.push(currentLesson.id)
+      updatedCompleted.push(currentLesson.id);
     }
+    setCompletedLessons(updatedCompleted);
 
-    setCompletedLessons(updatedCompleted)
-
-    // Save to localStorage
-    localStorage.setItem(
-      `course_progress_${courseId}`,
-      JSON.stringify({
-        completed: updatedCompleted,
-      }),
-    )
-
-    // Update progress
-    const progressPercentage = (updatedCompleted.length / allLessons.length) * 100
-    setProgress(progressPercentage)
-
-    // Update course progress in courses list
-    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-    const updatedCourses = generatedCourses.map((c: any) => {
-      if (c.id === courseId || c.courseId === courseId) {
-        return {
-          ...c,
-          progress: progressPercentage,
-        }
+    // Calculate total lessons (flatten allLessons if needed)
+    let totalLessons = 0;
+    if (Array.isArray(allLessons)) {
+      if (allLessons.length > 0 && allLessons[0].lessons) {
+        // allLessons is array of modules
+        totalLessons = allLessons.reduce((acc, mod) => acc + (mod.lessons?.length || 0), 0);
+      } else {
+        // allLessons is flat array
+        totalLessons = allLessons.length;
       }
-      return c
-    })
-    localStorage.setItem("generatedCourses", JSON.stringify(updatedCourses))
-
-    // Update recent courses in localStorage (recent activity)
-    try {
-      const recentCourses = JSON.parse(localStorage.getItem("recentCourses") || "[]")
-      // Remove if already exists
-      const filtered = recentCourses.filter((item: any) => item.courseId !== courseId)
-      // Add to top
-      filtered.unshift({
-        courseId: course.courseId || course.id,
-        courseTitle: course.title,
-        lastViewedLessonId: currentLesson.id,
-        lastViewedLessonTitle: currentLesson.title,
-        progress: progressPercentage,
-        timestamp: Date.now(),
-      })
-      // Keep only last 10
-      localStorage.setItem("recentCourses", JSON.stringify(filtered.slice(0, 10)))
-    } catch (error) {
-      console.error("Failed to update recent courses in localStorage:", error)
     }
 
-    // Show quiz after marking complete
-    setShowQuiz(true)
+    // Calculate new progress percentage
+    const newProgress = totalLessons > 0 ? Math.round((updatedCompleted.length / totalLessons) * 100) : 0;
+    setProgress(newProgress);
 
-    // Scroll to quiz
-    setTimeout(() => {
-      contentRef.current?.scrollIntoView({ behavior: "smooth" })
-    }, 100)
-  }
+    // Update progress and completed lessons in courses table
+    try {
+      await supabase
+        .from("courses")
+        .update({ progress: newProgress, completed_lessons: updatedCompleted, updated_at: new Date().toISOString() })
+        .eq("id", courseId);
+      console.log("Course progress and completed lessons updated in Supabase");
+    } catch (err: any) {
+      console.error("Error updating course progress in Supabase:", err);
+    }
+  };
 
   // Handle quiz submission
   const handleQuizSubmit = () => {
@@ -424,33 +370,23 @@ export default function LessonPage() {
     setQuizSubmitted(true)
   }
 
+  // Flatten all lessons for navigation
+  const flatLessons = Array.isArray(allLessons) && allLessons[0]?.lessons
+    ? allLessons.flatMap((mod: any) => mod.lessons)
+    : allLessons;
+
   // Navigate to next or previous lesson
   const navigateLesson = (direction: "next" | "prev") => {
-    if (!currentLesson || allLessons.length === 0) return
-
-    const currentIndex = allLessons.findIndex((l) => l.id === currentLesson.id)
-    if (currentIndex === -1) return
-
-    let targetIndex
-    if (direction === "next") {
-      targetIndex = currentIndex + 1
-      if (targetIndex >= allLessons.length) return // No next lesson
-    } else {
-      targetIndex = currentIndex - 1
-      if (targetIndex < 0) return // No previous lesson
+    if (!currentLesson || !flatLessons.length) return;
+    const currentIdx = flatLessons.findIndex((l: any) => l.id === currentLesson.id);
+    if (currentIdx === -1) return;
+    let targetIdx = direction === "next" ? currentIdx + 1 : currentIdx - 1;
+    if (targetIdx < 0 || targetIdx >= flatLessons.length) return;
+    const targetLesson = flatLessons[targetIdx];
+    if (targetLesson) {
+      router.push(`/dashboard/course/${courseId}/learn/${targetLesson.id}`);
     }
-
-    const targetLesson = allLessons[targetIndex]
-    router.push(`/dashboard/course/${courseId}/learn/${targetLesson.id}`)
-
-    // Reset quiz state
-    setShowQuiz(false)
-    setQuizAnswers({})
-    setQuizSubmitted(false)
-
-    // Scroll to top
-    window.scrollTo(0, 0)
-  }
+  };
 
   // Handle AI assistant
   const handleAssistantSubmit = async (e: React.FormEvent) => {
@@ -464,9 +400,45 @@ export default function LessonPage() {
 
     try {
       const response = await generateLessonAssistant({ currentLesson, userMessage }, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
-      setChatHistory([...updatedChat, { role: "assistant", content: response }])
+      const newChat = [...updatedChat, { role: "assistant", content: response }]
+      setChatHistory(newChat)
+
+      // Save Q&A to Supabase (chatbot_qa in course_chapters)
+      if (currentLesson && currentLesson.courseId) {
+        // Fetch the chapter row by course_id and lesson title (or use lesson id if available)
+        const { data: chapters, error: chaptersError } = await supabase
+          .from("course_chapters")
+          .select("id,chatbot_qa")
+          .eq("course_id", currentLesson.courseId)
+          .eq("title", currentLesson.title)
+          .limit(1)
+        if (!chaptersError && chapters && chapters.length > 0) {
+          const chapter = chapters[0]
+          const prevQA = Array.isArray(chapter.chatbot_qa) ? chapter.chatbot_qa : []
+          const newQA = [
+            ...prevQA,
+            { question: userMessage, answer: response }
+          ]
+          await supabase
+            .from("course_chapters")
+            .update({ chatbot_qa: newQA })
+            .eq("id", chapter.id)
+          // Fetch updated Q&A and update local chatHistory
+          const { data: updatedChapters } = await supabase
+            .from("course_chapters")
+            .select("chatbot_qa")
+            .eq("id", chapter.id)
+            .single()
+          if (updatedChapters && Array.isArray(updatedChapters.chatbot_qa)) {
+            setChatHistory(updatedChapters.chatbot_qa.map((item: any) => [
+              { role: "user", content: item.question },
+              { role: "assistant", content: item.answer }
+            ]).flat())
+          }
+        }
+      }
     } catch (err) {
-      setChatHistory([...updatedChat, { role: "assistant", content: "Sorry, I couldn't get an answer from AI at the moment." }])
+      setChatHistory([...updatedChat, { role: "assistant", content: "Maaf, saya tidak bisa mendapatkan jawaban dari AI saat ini." }])
     }
   }
 
@@ -501,13 +473,6 @@ export default function LessonPage() {
     }
   }, [course]);
 
-  // Load completed lessons from localStorage
-  useEffect(() => {
-    if (!courseId) return;
-    const savedProgress = JSON.parse(localStorage.getItem(`course_progress_${courseId}`) || '{"completed": []}')
-    setCompletedLessons(savedProgress.completed || [])
-  }, [courseId])
-
   // Update progress whenever completedLessons or allLessons berubah
   useEffect(() => {
     if (allLessons.length > 0) {
@@ -519,21 +484,16 @@ export default function LessonPage() {
   }, [completedLessons, allLessons])
 
   if (!course) {
-    return <div>Course not found</div>;
+    return null;
   }
   if (!currentLesson) {
-    // Coba cari lesson dengan normalisasi id
-    const foundLesson = allLessons.find((l) => String(l.id) === String(currentLessonId));
+    // Try to find lesson by normalized id
+    const foundLesson = allLessons.find((mod) => mod.lessons.find((l: any) => String(l.id) === String(currentLessonId)));
     if (foundLesson) {
-      setCurrentLesson(foundLesson);
+      setCurrentLesson(foundLesson.lessons.find((l: any) => String(l.id) === String(currentLessonId)));
       return null;
     }
-        return (
-      <div>
-        Lesson not found. Cek id lesson di URL dan data course di localStorage.
-        <pre>{JSON.stringify(allLessons, null, 2)}</pre>
-            </div>
-    );
+    return null;
   }
 
   return (
@@ -542,7 +502,7 @@ export default function LessonPage() {
       <LessonSidebar
         courseTitle={course?.title || ""}
         completedLessons={completedLessons}
-        modules={course?.modules || []}
+        modules={allLessons}
         currentLessonId={currentLesson?.id || ""}
         progress={progress}
         sidebarOpen={sidebarOpen}
@@ -556,14 +516,6 @@ export default function LessonPage() {
           progress={progress}
           completedLessons={completedLessons}
           markAsComplete={markAsComplete}
-          showQuiz={showQuiz}
-          setShowQuiz={setShowQuiz}
-          quizAnswers={quizAnswers}
-          setQuizAnswers={setQuizAnswers}
-          quizSubmitted={quizSubmitted}
-          setQuizSubmitted={setQuizSubmitted}
-          quizScore={quizScore}
-          setQuizScore={setQuizScore}
           allLessons={allLessons}
           navigateLesson={navigateLesson}
           contentRef={contentRef as React.RefObject<HTMLDivElement>}

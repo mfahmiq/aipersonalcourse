@@ -1,101 +1,122 @@
-"use client";
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
+"use client"
+
+import { useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function EditLessonPage() {
+  const { id, lessonId } = useParams();
   const router = useRouter();
-  const params = useParams();
-  const { lessonId, id: courseId } = params;
+  const courseId = Array.isArray(id) ? id[0] : id;
+  const lessonUUID = Array.isArray(lessonId) ? lessonId[0] : lessonId; // gunakan UUID
+  const supabase = createClientComponentClient();
+
+  const [lesson, setLesson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [lesson, setLesson] = useState({
-    title: "",
-    content: "",
-    youtube_url: ""
-  });
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    async function fetchLesson() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("lessons")
-        .select("title, content, youtube_url")
-        .eq("id", lessonId)
+    const fetchLesson = async () => {
+      // Fetch lesson langsung berdasarkan UUID
+      const { data: found, error } = await supabase
+        .from("course_chapters")
+        .select("*")
+        .eq("id", lessonUUID)
         .single();
-      if (error) {
-        toast({ title: "Lesson not found", description: error.message, variant: "destructive" });
-        router.push(`/dashboard/course/${courseId}/learn`);
+      if (error || !found) {
+        setError("Lesson not found");
+        setLoading(false);
         return;
       }
-      setLesson({
-        title: data.title || "",
-        content: data.content || "",
-        youtube_url: data.youtube_url || ""
-      });
+      setLesson(found);
       setLoading(false);
-    }
-    if (lessonId) fetchLesson();
-  }, [lessonId, courseId, router]);
+    };
+    if (courseId && lessonUUID) fetchLesson();
+  }, [courseId, lessonUUID, supabase]);
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    const { error } = await supabase
-      .from("lessons")
-      .update({
-        title: lesson.title,
-        content: lesson.content,
-        youtube_url: lesson.youtube_url
-      })
-      .eq("id", lessonId);
-    setSaving(false);
-    if (error) {
-      toast({ title: "Failed to save", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Lesson updated", description: "Lesson has been updated successfully." });
+  // Fungsi konversi link YouTube ke format embed
+  function convertToEmbedUrl(url: string): string {
+    if (!url) return '';
+    // youtu.be/xxxx
+    const shortMatch = url.match(/youtu\.be\/([\w-]+)/);
+    if (shortMatch) {
+      return `https://www.youtube.com/embed/${shortMatch[1]}`;
     }
+    // youtube.com/watch?v=xxxx
+    const longMatch = url.match(/[?&]v=([\w-]+)/);
+    if (longMatch) {
+      return `https://www.youtube.com/embed/${longMatch[1]}`;
+    }
+    // youtube.com/embed/xxxx
+    const embedMatch = url.match(/embed\/([\w-]+)/);
+    if (embedMatch) {
+      return `https://www.youtube.com/embed/${embedMatch[1]}`;
+    }
+    // Jika tidak cocok, kembalikan as is
+    return url;
   }
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  const handleSave = async () => {
+    if (!lesson) return;
+    setSaving(true);
+    // Konversi video_url ke embed sebelum simpan
+    const embedUrl = convertToEmbedUrl(lesson.video_url || "");
+    const { error } = await supabase
+      .from("course_chapters")
+      .update({ title: lesson.title, content: lesson.content, video_url: embedUrl })
+      .eq("id", lesson.id);
+    setSaving(false);
+    if (error) {
+      setError("Gagal menyimpan materi: " + error.message);
+      return;
+    }
+    router.push(`/dashboard/course/${courseId}/learn/${lesson.id}`); // navigasi pakai UUID
+  };
+
+  if (loading) return <div className="p-8">Loading...</div>;
+  if (error) return <div className="p-8 text-red-600">{error === "Lesson not found" ? "Materi tidak ditemukan" : error}</div>;
 
   return (
-    <div className="max-w-xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Edit Lesson</h1>
-      <form onSubmit={handleSave} className="space-y-4">
+    <div className="max-w-2xl mx-auto p-8 space-y-6">
+      <h1 className="text-2xl font-bold mb-4">Edit Materi</h1>
+      <div className="space-y-4">
         <div>
-          <label className="block mb-1 font-medium">Lesson Name</label>
+          <label className="block font-medium mb-1">Judul</label>
           <Input
             value={lesson.title}
-            onChange={e => setLesson(l => ({ ...l, title: e.target.value }))}
-            required
+            onChange={e => setLesson((l: any) => ({ ...l, title: e.target.value }))}
           />
         </div>
         <div>
-          <label className="block mb-1 font-medium">Lesson Content</label>
+          <label className="block font-medium mb-1">Konten (Markdown)</label>
           <Textarea
+            rows={12}
             value={lesson.content}
-            onChange={e => setLesson(l => ({ ...l, content: e.target.value }))}
-            rows={8}
-            required
+            onChange={e => setLesson((l: any) => ({ ...l, content: e.target.value }))}
           />
         </div>
         <div>
-          <label className="block mb-1 font-medium">YouTube Link</label>
+          <label className="block font-medium mb-1">URL Video (YouTube)</label>
           <Input
-            value={lesson.youtube_url}
-            onChange={e => setLesson(l => ({ ...l, youtube_url: e.target.value }))}
-            placeholder="https://youtube.com/watch?v=..."
+            value={lesson.video_url || ''}
+            onChange={e => setLesson((l: any) => ({ ...l, video_url: e.target.value }))}
+            placeholder="https://www.youtube.com/watch?v=..."
           />
         </div>
-        <Button type="submit" disabled={saving} className="w-full">
-          {saving ? "Saving..." : "Save Changes"}
+      </div>
+      <div className="flex gap-2 mt-6">
+        <Button onClick={handleSave} disabled={saving} className="bg-primary text-white">
+          {saving ? "Menyimpan..." : "Simpan"}
         </Button>
-      </form>
+        <Button variant="outline" onClick={() => router.push(`/dashboard/course/${courseId}/learn/${lesson.id}`)}>
+          Batal
+        </Button>
+      </div>
+      {error && <div className="text-red-600 mt-4">{error}</div>}
     </div>
   );
 } 

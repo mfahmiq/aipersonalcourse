@@ -3,27 +3,53 @@
 import { useState, useEffect } from "react"
 import { PlayCircle, Loader2, AlertCircle } from "lucide-react"
 import { searchYouTubeVideos } from "@/lib/youtube"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface YouTubePlayerProps {
+  videoUrl?: string
   lessonTitle: string
   lessonContent: string
   courseTopic?: string
+  courseId?: string
+  chapterId?: string
 }
 
-export function YouTubePlayer({ lessonTitle, lessonContent, courseTopic }: YouTubePlayerProps) {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+export function YouTubePlayer({ videoUrl: initialVideoUrl, lessonTitle, lessonContent, courseTopic, courseId, chapterId }: YouTubePlayerProps) {
+  const [videoUrl, setVideoUrl] = useState<string | null>(initialVideoUrl || null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
+    if (initialVideoUrl) {
+      setVideoUrl(initialVideoUrl)
+      setLoading(false)
+      setError(null)
+      return
+    }
     const fetchVideo = async () => {
       setLoading(true)
       setError(null)
-      
       try {
         const videos = await searchYouTubeVideos(lessonTitle, lessonContent, courseTopic, 1)
         if (videos.length > 0) {
           setVideoUrl(videos[0].embedUrl)
+          // Update video_url in Supabase if courseId and chapterId are provided
+          if (courseId && chapterId) {
+            console.log("[YouTubePlayer] Attempting to update video_url", { courseId, chapterId, videoUrl: videos[0].embedUrl });
+            const { error } = await supabase
+              .from("course_chapters")
+              .update({ video_url: videos[0].embedUrl })
+              .eq("course_id", courseId)
+              .eq("id", chapterId)
+            if (error) {
+              console.error("[YouTubePlayer] Supabase update error:", error)
+            } else {
+              console.log("[YouTubePlayer] Supabase update success for video_url")
+            }
+          } else {
+            console.warn("[YouTubePlayer] courseId or chapterId missing", { courseId, chapterId })
+          }
         } else {
           setError("Tidak ada video yang ditemukan untuk topik ini")
         }
@@ -34,9 +60,8 @@ export function YouTubePlayer({ lessonTitle, lessonContent, courseTopic }: YouTu
         setLoading(false)
       }
     }
-
     fetchVideo()
-  }, [lessonTitle, lessonContent, courseTopic])
+  }, [initialVideoUrl, lessonTitle, lessonContent, courseTopic, courseId, chapterId])
 
   if (loading) {
     return (

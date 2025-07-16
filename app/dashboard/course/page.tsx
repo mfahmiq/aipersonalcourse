@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BookOpen, Clock, Play, Search, Filter, Plus, Sparkles, Edit, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 // Tambahkan tipe Course agar nextLessonId dikenali
 interface Course {
@@ -34,68 +35,60 @@ export default function CoursePage() {
   const [filterLevel, setFilterLevel] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const router = useRouter();
+  const supabase = createClientComponentClient();
 
-  // Load generated courses from localStorage
+  // Load courses from Supabase
   useEffect(() => {
-    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-    const formattedGeneratedCourses = generatedCourses.map((course: any) => {
-      const courseId = course.courseId || course.id;
-      // Ambil progress user dari localStorage
-      const progressData = JSON.parse(localStorage.getItem(`course_progress_${courseId}`) || '{"completed": []}')
-      // Hitung total lessons
-      let totalLessons = 0;
-      let allLessonIds: string[] = [];
-      if (Array.isArray(course.modules)) {
-        course.modules.forEach((mod: any) => {
-          if (Array.isArray(mod.lessons)) {
-            totalLessons += mod.lessons.length;
-            allLessonIds.push(...mod.lessons.map((l: any) => l.id));
-          }
-        });
+    const fetchCourses = async () => {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !session.user?.id) {
+        setCourses([]);
+        return;
       }
-      // Hitung completed lessons
-      const completedLessons = Array.isArray(progressData.completed) ? progressData.completed.length : 0;
-      // Hitung progress
-      const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-      // Cari lesson terakhir yang belum selesai
-      let nextLessonId = null;
-      if (allLessonIds.length > 0) {
-        nextLessonId = allLessonIds.find((id) => !progressData.completed?.includes(id)) || allLessonIds[0];
+      const userId = session.user.id;
+      const { data: coursesData, error } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching courses:", error);
+        setCourses([]);
+        return;
       }
-      return {
-        id: courseId,
+
+      const formattedCourses = (coursesData || []).map((course: any) => ({
+        id: course.id,
         title: course.title,
         description: course.description,
-        progress,
-        totalLessons,
-        completedLessons,
-        duration: course.duration,
-        level: course.level || "",
-        status: progress === 100 ? "Completed" : progress > 0 ? "In Progress" : "Not Started",
-        type: "generated",
+        progress: course.progress ?? 0,
+        totalLessons: course.lessons ?? 0,
+        completedLessons: Array.isArray(course.completed_lessons) ? course.completed_lessons.length : 0,
+        duration: course.duration ?? "",
+        level: course.level ?? "",
+        status: course.progress === 100 ? "Completed" : course.progress > 0 ? "In Progress" : "Not Started",
+        type: course.type ?? "",
         image: "/placeholder.svg?height=200&width=300",
-        createdAt: course.createdAt,
-        nextLessonId,
-      }
-    })
-    setCourses(formattedGeneratedCourses)
-  }, [])
+        createdAt: course.created_at
+      }));
+      setCourses(formattedCourses);
+    };
+    fetchCourses();
+  }, []);
 
   // Handle course deletion
-  const handleDeleteCourse = (courseId: string, courseType: string) => {
-    if (confirm("Are you sure you want to delete this course? This action cannot be undone.")) {
-      if (courseType === "generated") {
-        // Remove from generated courses in localStorage
-        const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-        const updatedGeneratedCourses = generatedCourses.filter((course: any) => (course.courseId || course.id) !== courseId)
-        localStorage.setItem("generatedCourses", JSON.stringify(updatedGeneratedCourses))
+  const handleDeleteCourse = async (courseId: string, courseType: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus kursus ini? Tindakan ini tidak dapat dibatalkan.")) {
+      // Delete from Supabase
+      const { error } = await supabase.from("courses").delete().eq("id", courseId);
+      if (error) {
+        alert("Gagal menghapus kursus: " + error.message);
+        return;
       }
-      
       // Update local state
-      setCourses(prevCourses => prevCourses.filter(course => {
-        const realId = (course as any).courseId || course.id
-        return realId !== courseId
-      }))
+      setCourses(prevCourses => prevCourses.filter(course => course.id !== courseId));
     }
   }
 
@@ -130,11 +123,11 @@ export default function CoursePage() {
 
   const getLevelColor = (level: string) => {
     switch (level) {
-      case "Beginner":
+      case "Pemula":
         return "bg-blue-500 text-white"
-      case "Intermediate":
+      case "Menengah":
         return "bg-yellow-500 text-white"
-      case "Advanced":
+      case "Lanjutan":
         return "bg-red-500 text-white"
       default:
         return "bg-muted text-muted-foreground"
@@ -146,13 +139,13 @@ export default function CoursePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">My Courses</h1>
-          <p className="text-muted-foreground mt-1">Continue your learning journey with personalized courses</p>
+          <h1 className="text-3xl font-bold text-foreground">Kursus Saya</h1>
+          <p className="text-muted-foreground mt-1">Lanjutkan perjalanan belajar Anda dan kelola semua kursus di sini</p>
         </div>
         <Button className="bg-primary hover:bg-primary-foreground text-primary-foreground hover:text-primary" asChild>
           <Link href="/dashboard/outline">
             <Plus className="h-4 w-4 mr-2" />
-            Create New Course
+            Buat Kursus Baru
           </Link>
         </Button>
       </div>
@@ -169,8 +162,8 @@ export default function CoursePage() {
             <div className="text-sm">
               <div className="font-medium text-amber-800 mb-1">Peringatan Konten AI</div>
               <div className="text-amber-700">
-                Beberapa course di daftar ini dibuat dengan AI menggunakan informasi web terkini untuk akurasi informasi. 
-                Meskipun konten telah diverifikasi dari sumber terpercaya, 
+                Beberapa kursus di daftar ini dibuat dengan AI menggunakan informasi web terkini untuk akurasi informasi.
+                Meskipun konten telah diverifikasi dari sumber terpercaya,
                 <strong> mohon periksa kembali informasi yang disajikan untuk memastikan relevansi dengan kebutuhan Anda.</strong>
               </div>
             </div>
@@ -185,34 +178,22 @@ export default function CoursePage() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search courses..."
+                placeholder="Cari kursus..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 bg-background border-border focus:border-primary focus-visible:ring-ring"
               />
             </div>
             <div className="flex gap-2">
-              <Select value={filterLevel} onValueChange={setFilterLevel}>
-                <SelectTrigger className="w-[140px] border-border focus:border-primary">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Levels</SelectItem>
-                  <SelectItem value="Beginner">Beginner</SelectItem>
-                  <SelectItem value="Intermediate">Intermediate</SelectItem>
-                  <SelectItem value="Advanced">Advanced</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[140px] border-border focus:border-primary">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Not Started">Not Started</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="Not Started">Belum Dimulai</SelectItem>
+                  <SelectItem value="In Progress">Sedang Berjalan</SelectItem>
+                  <SelectItem value="Completed">Selesai</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -224,6 +205,8 @@ export default function CoursePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCourses.map((course, index) => {
           const realId = (course as any).courseId || course.id;
+          const percent = course.totalLessons > 0 ? Math.round((course.completedLessons / course.totalLessons) * 100) : 0;
+          const displayPercent = Math.min(percent, 100);
           return (
             <Card key={`${realId}-${course.type}-${index}`} className="border border-border bg-card shadow-sm hover:shadow-md transition-shadow group">
             <div className="relative">
@@ -236,12 +219,14 @@ export default function CoursePage() {
                 <div className="absolute top-3 left-3">
                   <Badge className="bg-primary text-primary-foreground">
                     <Sparkles className="h-3 w-3 mr-1" />
-                    AI Generated
+                    Dibuat oleh AI
                   </Badge>
                 </div>
               )}
               <div className="absolute top-3 right-3 flex gap-2">
-                <Badge className={getStatusColor(course.status)}>{course.status}</Badge>
+                <Badge className={getStatusColor(course.status)}>
+                  {course.status === "Completed" ? "Selesai" : course.status === "In Progress" ? "Sedang Berjalan" : course.status === "Not Started" ? "Belum Dimulai" : course.status}
+                </Badge>
                 {course.type === "generated" && (
                   <>
                     <Button
@@ -280,47 +265,96 @@ export default function CoursePage() {
             </CardHeader>
 
             <CardContent className="space-y-4">
-              {course.progress > 0 && (
+              {displayPercent > 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm text-foreground">
                     <span>Progress</span>
-                    <span>{course.progress}%</span>
+                    <span>{displayPercent}%</span>
                   </div>
-                  <Progress value={course.progress} className="h-2" />
+                  <Progress value={displayPercent} className="h-2" />
                   <div className="text-xs text-muted-foreground">
                     {course.completedLessons} of {course.totalLessons} lessons completed
                   </div>
                 </div>
               )}
 
-                <Button
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
-                  onClick={() => {
-                    if (course.type === "generated") {
-                      // Cari lesson berikutnya dari nextLessonId
-                      const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]");
-                      const found = generatedCourses.find((c: any) => (c.courseId || c.id) === realId);
-                      // Cari lessonId yang belum selesai
-                      let nextLessonId = course.nextLessonId;
-                      if (!nextLessonId && found?.modules?.[0]?.lessons?.[0]?.id) {
-                        nextLessonId = found.modules[0].lessons[0].id;
+                {/* Action Button */}
+                {course.progress === 0 ? (
+                  <Button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
+                    onClick={async () => {
+                      if (course.type === "generated") {
+                        // Fetch UUID lesson pertama dari Supabase
+                        const { data: firstLesson, error } = await supabase
+                          .from("course_chapters")
+                          .select("id")
+                          .eq("course_id", realId)
+                          .order("id", { ascending: true })
+                          .limit(1)
+                          .single();
+                        if (error || !firstLesson) {
+                          alert("Tidak dapat menemukan lesson pertama untuk course ini.");
+                          return;
+                        }
+                        router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
+                      } else {
+                        router.push(`/dashboard/course/${realId}`);
                       }
-                      if (nextLessonId) {
-                        router.push(`/dashboard/course/${realId}/learn/${nextLessonId}`);
+                    }}
+                  >
+                    Mulai Kursus
+                  </Button>
+                ) : course.progress < 100 ? (
+                  <Button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
+                    onClick={async () => {
+                      if (course.type === "generated") {
+                        // Fetch UUID lesson pertama dari Supabase
+                        const { data: firstLesson, error } = await supabase
+                          .from("course_chapters")
+                          .select("id")
+                          .eq("course_id", realId)
+                          .order("id", { ascending: true })
+                          .limit(1)
+                          .single();
+                        if (error || !firstLesson) {
+                          alert("Tidak dapat menemukan lesson pertama untuk course ini.");
+                          return;
+                        }
+                        router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
+                      } else {
+                        router.push(`/dashboard/course/${realId}`);
                       }
-                    } else {
-                      router.push(`/dashboard/course/${realId}`);
-                    }
-                  }}
-                  disabled={course.type === "generated" && !(() => {
-                    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]");
-                    const found = generatedCourses.find((c: any) => (c.courseId || c.id) === realId);
-                    return found?.modules?.[0]?.lessons?.[0]?.id;
-                  })()}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  {course.progress > 0 && course.progress < 100 ? "Continue Learning" : course.progress === 100 ? "Review Course" : "Start Course"}
-              </Button>
+                    }}
+                  >
+                    Lanjutkan
+                  </Button>
+                ) : (
+                  <Button
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
+                    onClick={async () => {
+                      if (course.type === "generated") {
+                        // Fetch UUID lesson pertama dari Supabase
+                        const { data: firstLesson, error } = await supabase
+                          .from("course_chapters")
+                          .select("id")
+                          .eq("course_id", realId)
+                          .order("id", { ascending: true })
+                          .limit(1)
+                          .single();
+                        if (error || !firstLesson) {
+                          alert("Tidak dapat menemukan lesson pertama untuk course ini.");
+                          return;
+                        }
+                        router.push(`/dashboard/course/${realId}/learn/${firstLesson.id}`);
+                      } else {
+                        router.push(`/dashboard/course/${realId}`);
+                      }
+                    }}
+                  >
+                    Tinjau
+                  </Button>
+                )}
             </CardContent>
           </Card>
           )
@@ -330,16 +364,16 @@ export default function CoursePage() {
       {filteredCourses.length === 0 && (
         <div className="text-center py-12 border border-border rounded-lg bg-card p-8">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">No courses found</h3>
+          <h3 className="text-lg font-medium text-foreground mb-2">Tidak ada kursus ditemukan</h3>
           <p className="text-muted-foreground mb-6">
             {searchQuery || filterLevel !== "all" || filterStatus !== "all"
-              ? "Try adjusting your search or filters"
-              : "Create your first course from an outline"}
+              ? "Coba ubah pencarian atau filter Anda"
+              : "Buat kursus pertama Anda dari outline"}
           </p>
           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20" asChild>
             <Link href="/dashboard/outline">
               <Plus className="h-4 w-4 mr-2" />
-              Create Course
+              Buat Kursus
             </Link>
           </Button>
         </div>

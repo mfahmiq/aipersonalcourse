@@ -1,9 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+
+console.log("SettingsPage file loaded");
 
 export default function SettingsPage() {
+  const supabase = createClientComponentClient();
+  console.log("SettingsPage component rendered");
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState({ full_name: "", email: "" })
   const [newName, setNewName] = useState("")
@@ -13,44 +17,60 @@ export default function SettingsPage() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
+    console.log("Settings useEffect running...");
     const fetchSettings = async () => {
+      console.log("Start fetchSettings");
       setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("Session:", session);
       if (!session) {
-        setLoading(false)
-        return
+        console.log("No session, returning");
+        setLoading(false);
+        return;
       }
-      setUserId(session.user.id)
+      setUserId(session.user.id);
+      console.log("UserId set:", session.user.id);
+      const authEmail = session.user.email || "";
+      const authFullName = session.user.user_metadata?.full_name || "";
+      console.log("authEmail:", authEmail, "authFullName:", authFullName);
       // Fetch from settings table
       const { data: settingsData, error } = await supabase
         .from("settings")
         .select("full_name, email")
         .eq("id", session.user.id)
-        .single()
-      const authEmail = session.user.email || ""
-      if (settingsData) {
-        setSettings({
-          full_name: settingsData.full_name || "",
-          email: settingsData.email || authEmail
-        })
-        setNewName(settingsData.full_name || "")
-        setNewEmail(settingsData.email || authEmail)
-        // Sync email if different
-        if (settingsData.email !== authEmail) {
+        .single();
+      console.log("settingsData:", settingsData, "error:", error);
+      // Debug log for fetched data
+      console.log("settingsData:", settingsData, "authEmail:", authEmail, "authFullName:", authFullName);
+      // Fallback logic (treat 'EMPTY' as empty)
+      let displayName = (settingsData?.full_name && settingsData.full_name !== "EMPTY") ? settingsData.full_name : authFullName || "";
+      let displayEmail = (settingsData?.email && settingsData.email !== "EMPTY") ? settingsData.email : authEmail || "";
+      console.log("displayName:", displayName, "displayEmail:", displayEmail);
+      setSettings({
+        full_name: displayName,
+        email: displayEmail
+      })
+      setNewName(displayName)
+      setNewEmail(displayEmail)
+      // Insert if not exists
+      if (!settingsData) {
+        await supabase
+          .from("settings")
+          .insert({ id: session.user.id, email: authEmail, full_name: authFullName })
+      } else {
+        // If full_name or email is empty, update with auth values
+        if (!settingsData.full_name && authFullName) {
+          await supabase
+            .from("settings")
+            .update({ full_name: authFullName })
+            .eq("id", session.user.id)
+        }
+        if (!settingsData.email && authEmail) {
           await supabase
             .from("settings")
             .update({ email: authEmail })
             .eq("id", session.user.id)
         }
-      } else {
-        // fallback to auth user email if no settings row
-        setSettings({ full_name: "", email: authEmail })
-        setNewName("")
-        setNewEmail(authEmail)
-        // Insert row if not exists
-        await supabase
-          .from("settings")
-          .insert({ id: session.user.id, email: authEmail })
       }
       setLoading(false)
     }
@@ -69,59 +89,72 @@ export default function SettingsPage() {
     const { error: dbError } = await supabase
       .from("settings")
       .upsert({ id: userId, full_name: newName, email: newEmail }, { onConflict: "id" })
-    // Update email in Supabase Auth if changed
+
+    // Update nama di Supabase Auth (user_metadata)
+    let metaError = null
+    if (newName !== settings.full_name) {
+      const { error } = await supabase.auth.updateUser({ data: { full_name: newName } })
+      metaError = error
+    }
+
+    // Update email di Supabase Auth hanya jika berubah dan valid
     let authError = null
-    if (newEmail !== settings.email) {
+    if (newEmail !== settings.email && newEmail) {
+      // Hanya kirim field email saja
       const { error } = await supabase.auth.updateUser({ email: newEmail })
+      if (error) {
+        console.log('Supabase Auth update email error:', error);
+      }
       authError = error
     }
-    // Update password if filled
+    // Update password jika diisi
     let pwError = null
     if (newPassword) {
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       pwError = error
     }
-    if (dbError || authError || pwError) setMessage("Failed to update profile.")
-    else setMessage("Profile updated!")
-    // Always re-fetch and sync after update
-    const { data: { session } } = await supabase.auth.getSession()
-    const authEmail = session?.user?.email || newEmail
-    await supabase
-      .from("settings")
-      .update({ email: authEmail })
-      .eq("id", userId)
-    setSettings((p) => ({ ...p, email: authEmail, full_name: newName }))
-    setNewEmail(authEmail)
-    setNewPassword("")
-    setLoading(false)
+    // Tampilkan error detail
+    if (dbError || authError || pwError || metaError) {
+      setMessage(authError?.message || dbError?.message || pwError?.message || metaError?.message || "Failed to update profile.");
+      // Jangan update state email jika gagal
+    } else {
+      setMessage("Profile updated!");
+      // Hanya update state jika berhasil
+      const { data: { session } } = await supabase.auth.getSession();
+      const authEmail = session?.user?.email || newEmail;
+      setSettings((p) => ({ ...p, email: authEmail, full_name: newName }));
+      setNewEmail(authEmail);
+    }
+    setNewPassword("");
+    setLoading(false);
   }
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-white py-8">
       <div className="w-full max-w-lg bg-white shadow-xl rounded-2xl p-8 border border-zinc-200">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-foreground mb-1 tracking-tight">Profile Settings</h1>
-          <p className="text-muted-foreground text-base">Edit your account information below.</p>
+          <h1 className="text-3xl font-bold text-foreground mb-1 tracking-tight">Pengaturan Profil</h1>
+          <p className="text-muted-foreground text-base">Edit informasi akun Anda di bawah ini.</p>
         </div>
         {/* Display current name and email */}
         <div className="mb-6 flex flex-col items-center gap-1">
           <div className="text-lg font-semibold text-zinc-800">{settings.full_name || "-"}</div>
           <div className="text-sm text-zinc-500">{settings.email || "-"}</div>
         </div>
-        {message && <div className="mb-4 text-green-600 font-medium text-center animate-fade-in">{message}</div>}
+        {message && <div className="mb-4 text-green-600 font-medium text-center animate-fade-in">{message === "Profile updated!" ? "Profil berhasil diperbarui!" : message === "Failed to update profile." ? "Gagal memperbarui profil." : message}</div>}
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading...</div>
+          <div className="text-center py-12 text-gray-500">Memuat...</div>
         ) : (
           <form className="space-y-7" onSubmit={e => { e.preventDefault(); handleSaveAll(); }}>
             <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-5 flex flex-col gap-2 shadow-sm">
-              <label className="block text-sm font-semibold text-zinc-700 mb-1">Display Name</label>
+              <label className="block text-sm font-semibold text-zinc-700 mb-1">Nama Lengkap</label>
               <input
                 type="text"
                 className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-zinc-200 bg-white rounded-lg px-3 py-2 text-base text-foreground placeholder:text-zinc-400 outline-none"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 disabled={loading}
-                placeholder="Your name"
+                placeholder="Nama Anda"
               />
             </div>
             <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-5 flex flex-col gap-2 shadow-sm">
@@ -132,11 +165,11 @@ export default function SettingsPage() {
                 value={newEmail}
                 onChange={e => setNewEmail(e.target.value)}
                 disabled={loading}
-                placeholder="your@email.com"
+                placeholder="email@anda.com"
               />
             </div>
             <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-5 flex flex-col gap-2 shadow-sm">
-              <label className="block text-sm font-semibold text-zinc-700 mb-1">New Password</label>
+              <label className="block text-sm font-semibold text-zinc-700 mb-1">Kata Sandi Baru</label>
               <input
                 type="password"
                 className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-zinc-200 bg-white rounded-lg px-3 py-2 text-base text-foreground placeholder:text-zinc-400 outline-none"
@@ -144,13 +177,14 @@ export default function SettingsPage() {
                 onChange={e => setNewPassword(e.target.value)}
                 disabled={loading}
                 placeholder="••••••••"
+                autoComplete="new-password"
               />
             </div>
             <button
               type="submit"
               className="w-full mt-4 px-5 py-3 bg-primary text-white rounded-lg font-semibold shadow hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed text-lg"
               disabled={loading || (!newName && !newEmail && !newPassword)}
-            >Save Changes</button>
+            >Simpan Perubahan</button>
           </form>
         )}
       </div>

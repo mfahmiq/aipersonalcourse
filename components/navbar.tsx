@@ -17,6 +17,7 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle"
 import { cn } from "@/lib/utils"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 interface NavbarProps {
   onMenuClick?: () => void
@@ -33,17 +34,16 @@ export function Navbar({ onMenuClick }: NavbarProps) {
 
   // Get the current page title based on the pathname
   const getPageTitle = () => {
-    if (pathname === "/dashboard") return "Dashboard"
-    if (pathname === "/dashboard/outline") return "Course Outlines"
-    if (pathname === "/dashboard/course") return "Courses"
-    if (pathname === "/dashboard/settings") return "Settings"
-    return "Dashboard"
+    if (pathname === "/dashboard") return "Dasbor"
+    if (pathname === "/dashboard/outline") return "Outline Kursus"
+    if (pathname === "/dashboard/course") return "Kursus"
+    if (pathname === "/dashboard/settings") return "Pengaturan"
+    return "Dasbor"
   }
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
-    localStorage.removeItem("isLoggedIn")
       // Force a hard reload to clear any cached state
       window.location.replace("/")
     } catch (error) {
@@ -79,7 +79,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}>
-                Dashboard
+                Dasbor
               </Link>
               <Link href="/dashboard/outline" className={cn(
                 "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -95,7 +95,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}>
-                Course
+                Kursus
               </Link>
             </nav>
           </div>
@@ -106,23 +106,27 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
-                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                    <span className="text-primary-foreground font-medium text-sm">JD</span>
-                  </div>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={/* TODO: ambil avatar_url dari session jika ada */ undefined} alt="User avatar" />
+                    <AvatarFallback>
+                      {/* Bisa pakai icon user atau inisial jika ingin, tapi permintaan user: hapus tulisan profile */}
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-muted-foreground">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 1115 0v.75a.75.75 0 01-.75.75h-13.5a.75.75 0 01-.75-.75v-.75z" />
+                      </svg>
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="sr-only">User menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile">Profile</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings">Settings</Link>
+                  <Link href="/dashboard/settings">Pengaturan</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>Keluar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -161,7 +165,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 onClick={() => setSidebarOpen(false)}
               >
                 <LayoutDashboard className="h-5 w-5" />
-                Dashboard
+                Dasbor
               </Link>
             </li>
             <li>
@@ -191,7 +195,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 onClick={() => setSidebarOpen(false)}
               >
                 <BookOpen className="h-5 w-5" />
-                Course
+                Kursus
               </Link>
             </li>
             <li>
@@ -206,7 +210,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 onClick={() => setSidebarOpen(false)}
               >
                 <Settings className="h-5 w-5" />
-                Settings
+                Pengaturan
               </Link>
             </li>
           </ul>
@@ -222,7 +226,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             className="w-full justify-start text-card-foreground hover:bg-accent hover:text-foreground"
           >
             <LogOut className="h-5 w-5 mr-3" />
-            Logout
+            Keluar
           </Button>
         </div>
       </div>

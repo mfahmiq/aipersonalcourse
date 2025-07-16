@@ -31,21 +31,18 @@ const POPULAR_EDU_VIDEO_IDS = [
 export async function searchYouTubeVideos(
   lessonTitle: string,
   lessonContent: string,
-  courseTopic?: string,
+  courseTitle?: string,
   maxResults: number = 1
 ): Promise<YouTubeVideo[]> {
-  // Build queries from most specific to most general
+  // Efficient: always combine courseTitle and lessonTitle, use only two queries
+  const base = courseTitle
+    ? `${courseTitle} ${lessonTitle}`
+    : lessonTitle;
+
   const queries = [
-    `${lessonTitle} tutorial`,
-    `${lessonTitle} ${courseTopic || ''} tutorial`,
-    `${lessonTitle} ${courseTopic || ''}`,
-    `${courseTopic || ''} tutorial`,
-    `${courseTopic || ''} introduction`,
-    `introduction to ${courseTopic || lessonTitle}`,
-    `education ${courseTopic || lessonTitle}`,
-    `crash course ${courseTopic || lessonTitle}`,
-    `what is ${courseTopic || lessonTitle}`,
-  ].filter(Boolean)
+    `${base} tutorial`,
+    `${base} introduction`,
+  ];
 
   for (const query of queries) {
     try {

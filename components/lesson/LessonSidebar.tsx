@@ -24,6 +24,11 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
   sidebarOpen,
   setSidebarOpen,
 }) => {
+  // Calculate total lessons
+  const totalLessons = Array.isArray(modules) ? modules.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) : 0;
+  // Calculate percent and cap at 100
+  const percent = totalLessons > 0 ? Math.round((completedLessons.length / totalLessons) * 100) : 0;
+  const displayPercent = Math.min(percent, 100);
   return (
     <div
       className={`
@@ -39,12 +44,12 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
           <h2 className="font-bold text-lg text-foreground">{courseTitle}</h2>
           <div className="mt-2">
             <div className="flex justify-between items-center text-sm mb-1">
-              <span className="text-muted-foreground font-medium">Your Progress</span>
-              <span className="text-muted-foreground font-semibold">{Array.isArray(completedLessons) ? completedLessons.length : 0} / {Array.isArray(modules) ? modules.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) : 0} lessons</span>
+              <span className="text-muted-foreground font-medium">Progres Anda</span>
+              <span className="text-muted-foreground font-semibold">{Array.isArray(completedLessons) ? completedLessons.length : 0} / {totalLessons} materi</span>
             </div>
             <div className="flex items-center gap-2">
-              <Progress value={progress} className="h-2 flex-1 transition-all duration-500" />
-              <span className="text-xs text-muted-foreground font-semibold min-w-[32px] text-right">{Math.round(progress)}%</span>
+              <Progress value={displayPercent} className="h-2 flex-1 transition-all duration-500" />
+              <span className="text-xs text-muted-foreground font-semibold min-w-[32px] text-right">{displayPercent}%</span>
             </div>
           </div>
         </div>
@@ -54,49 +59,51 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
       </div>
       <div className="p-4">
         <div className="space-y-6">
-          {Array.isArray(modules) && modules.map((modul, idx) => (
-            <div key={modul.id || idx} className="mb-2">
-              <h3 className="font-medium text-foreground mb-2 break-words">{modul.title}</h3>
-              <ul className="space-y-2">
-                {modul.lessons?.map((lesson: any) => (
-                  <li key={lesson.id}>
-                    <Link
-                      href={`/dashboard/course/${lesson.courseId || modul.id}/learn/${lesson.id}`}
-                      className={cn(
-                        "block p-3 rounded-md transition-colors",
-                        currentLessonId === lesson.id ? "bg-primary/10 text-primary font-semibold" : "hover:bg-accent hover:text-foreground text-muted-foreground",
-                      )}
-                      onClick={() => setSidebarOpen(false)}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="mt-0.5">
-                          {completedLessons.includes(lesson.id) ? (
-                            <div className="w-5 h-5 text-primary">
-                              <svg role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20px" height="20px">
-                                <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-                                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                  <path d="m9 11l3 3L22 4" />
-                                </g>
-                              </svg>
-                            </div>
-                          ) : (
-                            <div className="w-5 h-5 border-2 border-muted rounded-full bg-muted"></div>
+          {Array.isArray(modules) && modules
+            .slice()
+            .sort((a: any, b: any) => (a.module_number ?? a.number ?? a.index ?? '').localeCompare(b.module_number ?? b.number ?? b.index ?? ''))
+            .map((modul, idx) => (
+              <div key={modul.id || idx} className="mb-2">
+                <h3 className="font-medium text-foreground mb-2 break-words">{modul.title || `Module ${idx + 1}`}</h3>
+                <ul className="space-y-2">
+                  {modul.lessons
+                    ?.slice()
+                    .sort((a: any, b: any) => (a.number ?? a.index ?? '').localeCompare(b.number ?? b.index ?? ''))
+                    .map((lesson: any) => (
+                      <li key={lesson.id}>
+                        <Link
+                          href={`/dashboard/course/${lesson.courseId || modul.id}/learn/${lesson.id}`}
+                          className={cn(
+                            "block p-3 rounded-md transition-colors",
+                            currentLessonId === lesson.id ? "bg-primary/10 text-primary font-semibold" : "hover:bg-accent hover:text-foreground text-muted-foreground",
                           )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className={cn("font-medium break-words", currentLessonId === lesson.id && "font-semibold")}>{lesson.title.replace(/^lesson-\d+(\.\d+)?\s*/i, "")}</div>
-                          <div className="flex items-center text-xs text-muted-foreground mt-1">
-                            <Clock className="h-3 w-3 mr-1 text-current" />
-                            {lesson.duration || "-"}
+                          onClick={() => setSidebarOpen(false)}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="mt-0.5">
+                              {completedLessons.includes(lesson.id) ? (
+                                <div className="w-5 h-5 text-primary">
+                                  <svg role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20px" height="20px">
+                                    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+                                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                      <path d="m9 11l3 3L22 4" />
+                                    </g>
+                                  </svg>
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 border-2 border-muted rounded-full bg-muted"></div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className={cn("font-medium break-words", currentLessonId === lesson.id && "font-semibold")}>{lesson.title.replace(/^lesson-\d+(\.\d+)?\s*/i, "")}</div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                        </Link>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ))}
         </div>
       </div>
     </div>

@@ -16,21 +16,21 @@ ${formData.degree ? `- Degree/Field: ${formData.degree}` : ""}
 ${formData.difficulty ? `- Difficulty Level: ${formData.difficulty}` : ""}
 ${formData.duration ? `- Estimated Duration: ${formData.duration}` : ""}
 ${formData.language ? `- Language: ${formData.language}` : ""}
-${formData.video === 'yes' ? "- Include video content suggestions." : ""}
 ${formData.chapters ? `- Target Number of Chapters/Modules: ${formData.chapters}` : ""}
-${formData.goals ? `- Specific Learning Goals:\n${formData.goals}` : ""}
 
 Rule:
 - Output must be valid JSON
 - Do not include any commentary outside the JSON
+- Do not include citations or references in the overview field
 - Structure must include:
-  - id, title, description, topic, degree, level, duration, language, includeVideo, status, modules, lessons, estimatedHours, createdAt, learningGoals, overview
-  - modulesList: Array of modules each with title and lessons (with id, title, duration)
+  - id, title, description, topic, degree, level, duration, language, modules, lessons, createdAt, overview
+  - modulesList: Array of modules each with number (e.g., '1', '2'), title, and lessons (each lesson with number, e.g., '1.1', '1.2', title, duration)
+- The output JSON must always include a 'number' field for each module and lesson, and the order must match the outline structure.
 `;
 
 // Prompt untuk generate konten lesson
 export const LESSON_CONTENT_PROMPT = ({ outlineData, module, lesson }: any) => `Context:
-You are an expert technical writer and subject matter educator helping generate high-quality online course content. The course is part of an AI-powered course platform similar to 101.school.
+You are an expert technical writer and subject matter educator helping generate high-quality online course content. 
 
 Task:
 Generate a comprehensive, in-depth, and detailed lesson article in Markdown format based on the lesson information provided. The article should be long, thorough, and cover the topic from multiple angles, including background, theory, practical applications, examples, and advanced insights. Expand each section with as much detail as possible. Aim for a length of at least 1500 words if possible.
@@ -46,7 +46,7 @@ Course Info:
 - Level: ${outlineData.level}
 - Duration: ${outlineData.duration}
 - Language: ${outlineData.language}
-- Learning Goals: ${outlineData.learningGoals?.join("; ")}
+
 
 Module Info:
 - Title: ${module.title}
@@ -58,9 +58,8 @@ Lesson Info:
 Rules:
 1. Always fact-check every statement. Avoid hallucinations.
 2. If no valid source exists, DO NOT mention the information.
-3. Provide citations in format: [1], [2], etc., at relevant points.
-4. Include full reference list at the end using valid URLs only.
-5. Use proper **Markdown formatting** with the following structure:
+3. Include full reference list at the end using valid URLs only.
+4. Use proper **Markdown formatting** with the following structure:
    ### Introduction
    - Introduce the topic with relevance and purpose
    ### Basic Concepts
@@ -80,8 +79,8 @@ Rules:
    ### References
    - List complete sources like this:
      [1] "Title" - Author - URL
-6. Expand each section with as much detail as possible, including background, context, and advanced insights.
-7. The article should be as long and comprehensive as possible, aiming for at least 1500 words.
+5. Expand each section with as much detail as possible, including background, context, and advanced insights.
+6. The article should be as long and comprehensive as possible, aiming for at least 1500 words.
 
 Formatting Notes:
 - Use bullet points (- ) or numbered lists (1.) where applicable
@@ -98,12 +97,13 @@ Assist the user in understanding the current lesson content.
 
 Instruction:
 Respond to user questions clearly and accurately, using the lesson content as reference.
+If the user asks about code, code examples, or implementation, extract and explain any code blocks or code samples from the lesson content. If relevant, always include code blocks in your answer.
 
 Clarify & Refine:
 Lesson:
 - Title: ${currentLesson.title}
 - Description: ${currentLesson.description || "-"}
-- Content: ${typeof currentLesson.content === "string" ? currentLesson.content.slice(0, 4000) : ""}
+- Content: ${typeof currentLesson.content === "string" ? currentLesson.content : ""}
 
 User Question:
 ${userMessage}
@@ -113,27 +113,6 @@ Rules:
 - Be concise, accurate, and avoid fabricating information
 - If the answer isn't in the content, state it clearly
 - Never guess or assume unsupported facts
+- If the user asks about code, always include and explain code blocks from the lesson if available
 `;
 
-// Prompt tambahan untuk validasi anti-hallusinasi
-export const HALLUCINATION_PREVENTION_PROMPT = ({ courseContent }: any) => `Context:
-You are an AI content validator. The following is a generated course lesson that needs to be reviewed for factual accuracy.
-
-Task:
-Review and validate the content, checking for hallucination or unverifiable claims.
-
-Instruction:
-Highlight and suggest corrections for any part of the text that cannot be supported by reputable sources.
-
-Clarify & Refine:
-Course Lesson Content (Markdown):
-${courseContent.slice(0, 4000)}
-
-Rules:
-- Mark potentially hallucinated facts
-- Provide suggestions with source references if possible
-- Only allow content that can be supported by valid, trustworthy sources
-- Maintain the tone and clarity of the original content
-`;
-
-// Tambahkan prompt lain di bawah ini jika ada (misal: prompt untuk lesson, assistant, dsb) 

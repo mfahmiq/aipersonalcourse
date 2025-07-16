@@ -27,13 +27,11 @@ export default function EditOutlinePage() {
     description: "",
     topic: "",
     degree: "",
-    status: "",
     level: "",
     duration: "",
     language: "",
     includeVideo: false,
     overview: "",
-    estimatedhours: "",
     learningGoals: [] as string[],
   })
   const [modules, setModules] = useState<any[]>([])
@@ -51,13 +49,11 @@ export default function EditOutlinePage() {
           description: data.description || "",
           topic: data.topic || "",
           degree: data.degree || "",
-          status: data.status || "Draft",
-          level: data.level || "Intermediate",
+          level: data.level || "Menengah",
           duration: data.duration || "",
           language: data.language || "english",
           includeVideo: data.includeVideo || false,
           overview: data.overview || "",
-          estimatedhours: data.estimatedhours || "",
           learningGoals: typeof data.learning_goal === 'string' ? data.learning_goal.split(',').map((g: string) => g.trim()).filter(Boolean) : [],
         });
         setModules(Array.isArray(data.modules_detail) ? data.modules_detail : []);
@@ -99,7 +95,7 @@ export default function EditOutlinePage() {
   // Handle lesson changes
   const handleLessonChange = (moduleIndex: number, lessonIndex: number, field: string, value: string) => {
     const updatedModules = [...modules]
-    updatedModules[moduleIndex].lessons[lessonIndex][field as "title" | "duration"] = value
+    updatedModules[moduleIndex].lessons[lessonIndex][field as "title"] = value
     setModules(updatedModules)
   }
 
@@ -109,7 +105,6 @@ export default function EditOutlinePage() {
     updatedModules[moduleIndex].lessons.push({
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
       title: "",
-      duration: "15 min",
     })
     setModules(updatedModules)
   }
@@ -138,7 +133,6 @@ export default function EditOutlinePage() {
           {
             id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
             title: "",
-            duration: "15 min",
           },
         ],
       },
@@ -158,7 +152,6 @@ export default function EditOutlinePage() {
 
     // Calculate updated stats
     const totalLessons = Array.isArray(modules) ? modules.reduce((total: number, module: any) => total + (Array.isArray(module.lessons) ? module.lessons.length : 0), 0) : 0;
-    const estimatedHours = `${totalLessons * 0.5}h`;
 
     // Prepare update payload
     const updatePayload = {
@@ -166,26 +159,23 @@ export default function EditOutlinePage() {
       description: formData.description,
       topic: formData.topic,
       degree: formData.degree,
-      status: formData.status,
       level: formData.level,
       duration: formData.duration,
       language: formData.language,
       overview: formData.overview,
       modules: Array.isArray(modules) ? modules.length : 0,
       lessons: totalLessons,
-      estimatedhours: formData.estimatedhours || estimatedHours,
       modules_detail: modules,
-      learning_goal: Array.isArray(formData.learningGoals) ? formData.learningGoals.join(', ') : '',
       updatedAt: new Date().toISOString(),
     };
 
     const { error } = await supabase.from('outlines').update(updatePayload).eq('id', outlineId);
     if (error) {
-      alert('Failed to update outline: ' + error.message);
+      alert('Gagal memperbarui outline: ' + error.message);
       return;
     }
 
-    alert('Outline updated successfully!');
+    alert('Outline berhasil diperbarui!');
     router.push(`/dashboard/outline/${outlineId}`);
   };
 
@@ -199,7 +189,7 @@ export default function EditOutlinePage() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
             <Link href={`/dashboard/outline/${outlineId}`} className="flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
-              Back to Outline
+              Kembali ke Outline
             </Link>
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">Edit Outline</h1>
@@ -207,9 +197,9 @@ export default function EditOutlinePage() {
       </div>
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="modules">Modules & Lessons</TabsTrigger>
-          <TabsTrigger value="goals">Learning Goals</TabsTrigger>
+          <TabsTrigger value="overview">Ringkasan</TabsTrigger>
+          <TabsTrigger value="modules">Modul & Materi</TabsTrigger>
+          {/* <TabsTrigger value="goals">Learning Goals</TabsTrigger> */}
           {/* <TabsTrigger value="breakdown">Course Modules</TabsTrigger> */}
         </TabsList>
         {/* Overview Tab */}
@@ -217,70 +207,48 @@ export default function EditOutlinePage() {
           <form onSubmit={handleSubmit} className="space-y-8">
             <Card className="border border-border bg-card text-foreground shadow-none dark:bg-card dark:text-foreground dark:border-border">
               <CardHeader>
-                <CardTitle>Edit Outline Overview</CardTitle>
+                <CardTitle>Edit Ringkasan Outline</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <Label htmlFor="title">Title</Label>
+                    <Label htmlFor="title">Judul</Label>
                     <Input id="title" value={formData.title} onChange={(e) => handleInputChange("title", e.target.value)} required />
                   </div>
                   <div>
-                    <Label htmlFor="degree">Degree/Field</Label>
+                    <Label htmlFor="degree">Jurusan/Bidang</Label>
                     <Input id="degree" value={formData.degree} onChange={(e) => handleInputChange("degree", e.target.value)} />
                   </div>
                   <div>
-                    <Label htmlFor="level">Difficulty Level</Label>
-                    <Select value={formData.level} onValueChange={(v) => handleInputChange("level", v)}>
-                      <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Beginner">Beginner</SelectItem>
-                        <SelectItem value="Intermediate">Intermediate</SelectItem>
-                        <SelectItem value="Advanced">Advanced</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="level">Tingkat Kesulitan</Label>
+                    <Input id="level" value={formData.level} onChange={e => handleInputChange("level", e.target.value)} placeholder="Contoh: Pemula, Menengah, Lanjutan" />
                   </div>
                   <div>
-                    <Label htmlFor="duration">Estimated Duration</Label>
+                    <Label htmlFor="duration">Durasi Perkiraan</Label>
                     <Input id="duration" value={formData.duration} onChange={(e) => handleInputChange("duration", e.target.value)} />
                   </div>
                   <div>
-                    <Label htmlFor="language">Language</Label>
+                    <Label htmlFor="language">Bahasa</Label>
                     <Input id="language" value={formData.language} onChange={(e) => handleInputChange("language", e.target.value)} />
                   </div>
                   <div>
-                    <Label htmlFor="modules">No. of Chapters</Label>
+                    <Label htmlFor="modules">Jumlah Bab</Label>
                     <Input id="modules" value={Array.isArray(modules) ? modules.length : 0} readOnly />
                   </div>
                   <div>
-                    <Label htmlFor="lessons">No. of Lessons</Label>
+                    <Label htmlFor="lessons">Jumlah Materi</Label>
                     <Input id="lessons" value={Array.isArray(modules) ? modules.reduce((total, m) => total + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0} readOnly />
-                  </div>
-                  <div>
-                    <Label htmlFor="estimatedhours">Estimated Hours</Label>
-                    <Input id="estimatedhours" value={formData.estimatedhours} onChange={(e) => handleInputChange("estimatedhours", e.target.value)} />
-                  </div>
-                  <div>
-                    <Label htmlFor="status">Status</Label>
-                    <Select value={formData.status} onValueChange={(v) => handleInputChange("status", v)}>
-                      <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Draft">Draft</SelectItem>
-                        <SelectItem value="Published">Published</SelectItem>
-                        <SelectItem value="Archived">Archived</SelectItem>
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="overview">Overview</Label>
+                  <Label htmlFor="overview">Ringkasan</Label>
                   <Textarea id="overview" value={formData.overview} onChange={(e) => handleInputChange("overview", e.target.value)} rows={3} />
                 </div>
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">Deskripsi</Label>
                   <Textarea id="description" value={formData.description} onChange={(e) => handleInputChange("description", e.target.value)} rows={3} />
                 </div>
-                <Button type="submit" className="mt-4"><Save className="mr-2 h-4 w-4" />Save Overview</Button>
+                <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 mt-4">Simpan Ringkasan</Button>
               </CardContent>
             </Card>
           </form>
@@ -288,9 +256,9 @@ export default function EditOutlinePage() {
         {/* Modules & Lessons Tab */}
         <TabsContent value="modules">
           <Card className="border border-border bg-card text-foreground shadow-none">
-            <CardHeader><CardTitle>Modules & Lessons</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Modul & Materi</CardTitle></CardHeader>
             <CardContent className="space-y-6">
-              <Button onClick={addModule} type="button" className="mb-4">+ Add Module</Button>
+              <Button onClick={addModule} type="button" className="mb-4">+ Tambah Modul</Button>
               {modules.map((module, mIdx) => (
                 <div key={module.id || mIdx} className="border rounded p-4 mb-4">
                   <div className="flex items-center gap-2 mb-2">
@@ -301,31 +269,14 @@ export default function EditOutlinePage() {
                     {module.lessons.map((lesson: any, lIdx: number) => (
                       <li key={lesson.id || lIdx} className="flex items-center gap-2">
                         <Input value={lesson.title} onChange={e => handleLessonChange(mIdx, lIdx, "title", e.target.value)} placeholder="Lesson Title" className="flex-1" />
-                        <Input value={lesson.duration} onChange={e => handleLessonChange(mIdx, lIdx, "duration", e.target.value)} placeholder="Duration" className="w-24" />
                         <Button onClick={() => removeLesson(mIdx, lIdx)} type="button" variant="destructive" size="icon"><X className="h-4 w-4" /></Button>
                       </li>
                     ))}
                   </ul>
-                  <Button onClick={() => addLesson(mIdx)} type="button" size="sm" className="mt-2">+ Add Lesson</Button>
+                  <Button onClick={() => addLesson(mIdx)} type="button" size="sm" className="mt-2">+ Tambah Materi</Button>
                 </div>
               ))}
-              <Button onClick={handleSubmit} type="button" className="mt-4"><Save className="mr-2 h-4 w-4" />Save Modules & Lessons</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        {/* Learning Goals Tab */}
-        <TabsContent value="goals">
-          <Card className="border border-border bg-card text-foreground shadow-none">
-            <CardHeader><CardTitle>Learning Goals</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
-              <Button onClick={addLearningGoal} type="button" className="mb-4">+ Add Learning Goal</Button>
-              {formData.learningGoals.map((goal, idx) => (
-                <div key={idx} className="flex items-center gap-2 mb-2">
-                  <Input value={goal} onChange={e => handleLearningGoalChange(idx, e.target.value)} placeholder="Learning Goal" className="flex-1" />
-                  <Button onClick={() => removeLearningGoal(idx)} type="button" variant="destructive" size="icon"><X className="h-4 w-4" /></Button>
-                </div>
-              ))}
-              <Button onClick={handleSubmit} type="button" className="mt-4"><Save className="mr-2 h-4 w-4" />Save Learning Goals</Button>
+              <Button onClick={handleSubmit} type="submit" className="mt-4"><Save className="mr-2 h-4 w-4" />Simpan Modul & Materi</Button>
             </CardContent>
           </Card>
         </TabsContent>

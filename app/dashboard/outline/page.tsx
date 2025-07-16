@@ -30,7 +30,6 @@ export default function OutlinePage() {
     language: "",
     video: "",
     chapters: "",
-    goals: "",
   })
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -88,7 +87,7 @@ export default function OutlinePage() {
 
   const handleGenerateOutline = async () => {
     if (!formData.title || !formData.topic) {
-      alert("Please fill in at least the title and topic fields")
+      alert("Silakan isi minimal judul dan topik")
       return
     }
 
@@ -101,7 +100,7 @@ export default function OutlinePage() {
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id;
         if (!userId) {
-          setError("User not authenticated.");
+          setError("Pengguna belum login.");
           setIsGenerating(false);
           return;
         }
@@ -110,9 +109,6 @@ export default function OutlinePage() {
         const lessonsCount = Array.isArray(newOutline.modulesList)
           ? newOutline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0)
           : 0;
-        const learningGoalValue = Array.isArray(newOutline.learningGoals)
-          ? newOutline.learningGoals.join(', ')
-          : (newOutline.learning_goal || '');
         const { error: dbError } = await supabase.from("outlines").insert({
           user_id: userId,
           title: newOutline.title,
@@ -121,15 +117,15 @@ export default function OutlinePage() {
           level: newOutline.level,
           duration: newOutline.duration,
           language: newOutline.language,
+          degree: newOutline.degree,
           modules: modulesCount,
           lessons: lessonsCount,
           overview: newOutline.overview,
-          learning_goal: learningGoalValue,
           modules_detail: newOutline.modulesList
         });
         if (dbError) {
           console.error("Supabase insert error:", dbError);
-          setError("Failed to save outline: " + dbError.message);
+          setError("Gagal menyimpan outline: " + dbError.message);
           setIsGenerating(false);
           return;
         }
@@ -151,7 +147,6 @@ export default function OutlinePage() {
           language: "",
           video: "",
           chapters: "",
-          goals: "",
         })
         setShowGenerateModal(false)
     } catch (error) {
@@ -161,11 +156,20 @@ export default function OutlinePage() {
     }
   }
 
-  const handleDeleteOutline = (id: string) => {
-    if (confirm("Are you sure you want to delete this outline?")) {
-      const updatedOutlines = outlines.filter((outline) => outline.id !== id)
-      setOutlines(updatedOutlines)
-      localStorage.setItem("courseOutlines", JSON.stringify(updatedOutlines))
+  const handleDeleteOutline = async (id: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus outline ini?")) {
+      const { error } = await supabase.from("outlines").delete().eq("id", id);
+      if (error) {
+        alert("Gagal menghapus outline: " + error.message);
+      } else {
+        // Refresh outlines list from Supabase
+        const { data, error: fetchError } = await supabase.from("outlines").select("*").order("id", { ascending: false });
+        if (fetchError) {
+          setError(fetchError.message);
+        } else {
+          setOutlines(data || []);
+        }
+      }
     }
   }
 
@@ -182,14 +186,14 @@ export default function OutlinePage() {
 
   const getLevelColor = (level: string) => {
     switch (level) {
-      case "beginner":
-      case "Beginner":
+      case "Pemula":
+      case "pemula":
         return "bg-primary/10 text-primary"
-      case "intermediate":
-      case "Intermediate":
+      case "Menengah":
+      case "menengah":
         return "bg-primary/10 text-primary"
-      case "advanced":
-      case "Advanced":
+      case "Lanjutan":
+      case "lanjutan":
         return "bg-primary/10 text-primary"
       default:
         return "bg-muted text-muted-foreground"
@@ -208,12 +212,12 @@ export default function OutlinePage() {
             <div className="w-16 h-16 bg-primary/10 rounded-full border border-border flex items-center justify-center mx-auto mb-4">
               <Sparkles className="h-8 w-8 text-primary animate-pulse" />
             </div>
-            <CardTitle>Generating Course Outline</CardTitle>
-            <p className="text-sm text-muted-foreground">AI is creating your personalized course outline</p>
+            <CardTitle>Sedang Membuat Outline Kursus</CardTitle>
+            <p className="text-sm text-muted-foreground">AI sedang membuat outline kursus personal Anda</p>
           </CardHeader>
           <CardContent className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="text-sm text-muted-foreground mt-4">This may take a few moments...</p>
+            <p className="text-sm text-muted-foreground mt-4">Proses ini mungkin memerlukan beberapa saat...</p>
           </CardContent>
         </Card>
       </div>
@@ -224,11 +228,11 @@ export default function OutlinePage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Course Outlines</h1>
-        <p className="text-muted-foreground mt-1">Create and manage AI-generated course outlines for your learning journey.</p>
+        <h1 className="text-3xl font-bold text-foreground">Daftar Outline Kursus</h1>
+        <p className="text-muted-foreground mt-1">Buat dan kelola outline kursus yang dihasilkan AI untuk perjalanan belajar Anda.</p>
         <Button className="mt-4" onClick={() => setShowGenerateModal(true)}>
           <Sparkles className="h-4 w-4 mr-2" />
-          Generate Course Outline
+          Buat Outline Kursus
         </Button>
       </div>
 
@@ -249,36 +253,36 @@ export default function OutlinePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-blue-600" />
-                    Generate Course Outline
+                    Buat Outline Kursus
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Describe what you want to learn and our AI will create a comprehensive course outline for you.
+                    Jelaskan apa yang ingin Anda pelajari dan AI kami akan membuatkan outline kursus yang komprehensif untuk Anda.
                   </p>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="title" className="flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600" /> Title</Label>
-                      <Input id="title" placeholder="e.g. Introduction to Web Development" value={formData.title} onChange={e => handleInputChange("title", e.target.value)} className="mt-1" />
+                      <Label htmlFor="title" className="flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600" /> Judul</Label>
+                      <Input id="title" placeholder="Contoh: Pengantar Pengembangan Web" value={formData.title} onChange={e => handleInputChange("title", e.target.value)} className="mt-1" />
                     </div>
                     <div>
-                      <Label htmlFor="degree" className="flex items-center gap-2"><Layers className="w-5 h-5 text-blue-600" /> Degree/Field</Label>
-                      <Input id="degree" placeholder="e.g. Computer Science" value={formData.degree} onChange={e => handleInputChange("degree", e.target.value)} className="mt-1" />
+                      <Label htmlFor="degree" className="flex items-center gap-2"><Layers className="w-5 h-5 text-blue-600" /> Bidang Studi</Label>
+                      <Input id="degree" placeholder="Contoh: Informatika" value={formData.degree} onChange={e => handleInputChange("degree", e.target.value)} className="mt-1" />
                     </div>
                     <div>
-                      <Label htmlFor="difficulty" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> Difficulty Level</Label>
-                      <Input id="difficulty" placeholder="e.g. Beginner" value={formData.difficulty} onChange={e => handleInputChange("difficulty", e.target.value)} className="mt-1" />
+                      <Label htmlFor="difficulty" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> Tingkat Kesulitan</Label>
+                      <Input id="difficulty" placeholder="Contoh: Pemula" value={formData.difficulty} onChange={e => handleInputChange("difficulty", e.target.value)} className="mt-1" />
                     </div>
                     <div>
-                      <Label htmlFor="duration" className="flex items-center gap-2"><Clock className="w-5 h-5 text-blue-600" /> Estimated Duration</Label>
-                      <Input id="duration" placeholder="e.g. 4 weeks" value={formData.duration} onChange={e => handleInputChange("duration", e.target.value)} className="mt-1" />
+                      <Label htmlFor="duration" className="flex items-center gap-2"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</Label>
+                      <Input id="duration" placeholder="Contoh: 4 minggu" value={formData.duration} onChange={e => handleInputChange("duration", e.target.value)} className="mt-1" />
                     </div>
                     <div>
-                      <Label htmlFor="language" className="flex items-center gap-2"><Globe className="w-5 h-5 text-blue-600" /> Language</Label>
-                      <Input id="language" placeholder="e.g. English" value={formData.language} onChange={e => handleInputChange("language", e.target.value)} className="mt-1" />
+                      <Label htmlFor="language" className="flex items-center gap-2"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</Label>
+                      <Input id="language" placeholder="Contoh: Indonesia" value={formData.language} onChange={e => handleInputChange("language", e.target.value)} className="mt-1" />
                     </div>
                     <div>
-                      <Label htmlFor="chapters" className="flex items-center gap-2"><ListOrdered className="w-5 h-5 text-blue-600" /> No. of Chapters</Label>
+                      <Label htmlFor="chapters" className="flex items-center gap-2"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Bab</Label>
                       <Input
                         id="chapters"
                         placeholder="5"
@@ -292,24 +296,14 @@ export default function OutlinePage() {
                     </div>
                   </div>
                   <div className="mt-4">
-                    <Label htmlFor="topic" className="flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" /> Topic Description</Label>
+                    <Label htmlFor="topic" className="flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" /> Deskripsi Topik</Label>
                     <Textarea
                       id="topic"
-                      placeholder="Describe the topic in detail"
+                      placeholder="Jelaskan topik secara detail"
                       value={formData.topic}
                       onChange={e => handleInputChange("topic", e.target.value)}
                       className="mt-1 min-h-[100px] resize-y"
                       required
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <Label htmlFor="goals" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> Learning Goals</Label>
-                    <Textarea
-                      id="goals"
-                      placeholder="Describe what you want to achieve and any specific topics you want to cover... (one goal per line)"
-                      value={formData.goals}
-                      onChange={(e) => handleInputChange("goals", e.target.value)}
-                      className="mt-1 min-h-[80px]"
                     />
                   </div>
                   <Button
@@ -318,7 +312,7 @@ export default function OutlinePage() {
                     disabled={!formData.title || !formData.topic}
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Generate Outline
+                    Buat Outline
                   </Button>
                 </CardContent>
               </Card>
@@ -329,14 +323,14 @@ export default function OutlinePage() {
 
       {/* Your Outlines */}
       <div>
-        <h2 className="text-xl font-semibold text-foreground mb-4">Your Outlines</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Outline Anda</h2>
 
         {Array.isArray(outlines) && outlines.length === 0 ? (
           <div className="text-center py-12 border border-border rounded-lg bg-card p-8 shadow-sm">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No outlines created yet</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2">Belum ada outline yang dibuat</h3>
             <p className="text-muted-foreground mb-6">
-              Generate your first course outline to get started.
+              Buat outline kursus pertama Anda untuk memulai.
             </p>
           </div>
         ) : (
@@ -359,19 +353,19 @@ export default function OutlinePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                      <span>{modulesCount} Modules</span>
-                    <span>•</span>
-                      <span>{lessonsCount} Lessons</span>
-                    <span>•</span>
-                      <span>{outline.estimatedhours || "?"} Est.</span>
+                    {outline.modules} Modul
+                    <span className="mx-1">•</span>
+                    {outline.lessons} Materi
+                    <span className="mx-1">•</span>
+                    {outline.duration}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-muted-foreground text-sm line-clamp-2">{typeof outline.description === "string" ? outline.description : ""}</p>
+                  {outline.degree && (
+                    <div className="text-sm text-muted-foreground">Bidang Studi: {outline.degree}</div>
+                  )}
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className={`border border-border ${getStatusColor(outline.status)}`}>
-                      {typeof outline.status === "string" ? outline.status : "Unknown"}
-                    </Badge>
                     <Badge variant="outline" className={`border border-border ${getLevelColor(outline.level)}`}>
                       {typeof outline.level === "string" ? outline.level : "Unknown"}
                     </Badge>
@@ -380,7 +374,7 @@ export default function OutlinePage() {
                     <Button size="sm" variant="outline" className="w-full border border-border text-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/50" asChild>
                       <Link href={`/dashboard/outline/${outline.id}`}>
                         <Eye className="h-4 w-4 mr-2" />
-                        View
+                        Lihat
                       </Link>
                     </Button>
                     <Button size="sm" variant="outline" className="w-full border border-border text-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/50" onClick={() => handleEditClick(outline.id)}>

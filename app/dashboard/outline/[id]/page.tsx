@@ -17,10 +17,10 @@ import rehypeRaw from 'rehype-raw'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { generateOutline, generateLessonContent } from "@/lib/utils/gemini"
-import { LESSON_CONTENT_PROMPT } from "@/lib/utils/prompts"
 import { useOverlay } from "@/components/OverlayContext"
 import { Portal } from "@/components/Portal"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { OUTLINE_PROMPT } from "@/lib/utils/prompts";
 
 // Tambahkan fungsi delay
 function delay(ms: number) {
@@ -46,7 +46,13 @@ function extractCodeBlocks(content: string): string[] {
 
 // Fungsi generate konten per lesson
 async function generateLessonContentWrapper({ outlineData, module, lesson }: any) {
-  return generateLessonContent({ outlineData, module, lesson }, process.env.NEXT_PUBLIC_GEMINI_API_KEY!, validateAndFixReferences)
+  const rawContent = await generateLessonContent({ outlineData, module, lesson }, process.env.NEXT_PUBLIC_GEMINI_API_KEY!, validateAndFixReferences)
+  // Hapus prefix ```markdown jika ada
+  let cleanedContent = rawContent.content || rawContent;
+  if (typeof cleanedContent === 'string') {
+    cleanedContent = cleanedContent.replace(/^```markdown\s*/i, '');
+  }
+  return { ...rawContent, content: cleanedContent };
 }
 
 // Fungsi untuk validasi dan perbaikan referensi
@@ -126,6 +132,28 @@ function fixUrlFormat(url: string): string | null {
   }
 }
 
+// Helper untuk konversi durasi ke jam
+function convertDurationToHours(duration: string): string {
+  if (!duration) return "-";
+  const lower = duration.toLowerCase();
+  if (lower.includes("minggu")) {
+    const match = lower.match(/(\d+)/);
+    const weeks = match ? parseInt(match[1], 10) : 1;
+    return `${weeks * 7 * 24}h`;
+  }
+  if (lower.includes("hari")) {
+    const match = lower.match(/(\d+)/);
+    const days = match ? parseInt(match[1], 10) : 1;
+    return `${days * 24}h`;
+  }
+  if (lower.includes("jam") || lower.includes("hour")) {
+    const match = lower.match(/(\d+)/);
+    const hours = match ? parseInt(match[1], 10) : 1;
+    return `${hours}h`;
+  }
+  return duration;
+}
+
 export default function ViewOutlinePage() {
   const { id } = useParams()
   const router = useRouter()
@@ -169,13 +197,48 @@ export default function ViewOutlinePage() {
     const totalLessons = Array.isArray(outline.modulesList)
       ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0)
       : 0;
-    setGenerationProgress({ module: 0, lesson: 0, totalModules, totalLessons });
+    setGenerationProgress({ module: 0, lesson: 0, totalModules, totalLessons, currentLessonName: "" });
     setIsGenerating(true);
     try {
+      // Insert ke Supabase (course dulu)
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) {
+        setIsGenerating(false);
+        alert("User not authenticated.");
+        return;
+      }
+      // Insert course ke tabel 'courses'
+      const { data: courseInsert, error: courseError } = await supabase
+        .from("courses")
+        .insert([
+          {
+            user_id: userId,
+            outline_id: outline.id,
+            title: outline.title,
+            description: outline.description,
+            level: outline.level,
+            duration: outline.duration,
+            modules: totalModules,
+            lessons: totalLessons,
+            progress: 0,
+            status: "active",
+            type: "generated",
+            overview: outline.overview,
+            topic: outline.topic,
+            settings: {},
+          },
+        ])
+        .select("id")
+        .single();
+      if (courseError || !courseInsert) {
+        setIsGenerating(false);
+        alert("Failed to save course: " + (courseError?.message || "Unknown error"));
+        return;
+      }
+      const insertedCourseId = courseInsert.id;
       // Struktur awal course
-      const courseId = uuidv4()
       const course = {
-        courseId,
         outlineId: outline.id,
         title: outline.title,
         description: outline.description,
@@ -197,7 +260,8 @@ export default function ViewOutlinePage() {
             module: m + 1,
             lesson: lessonCount + 1,
             totalModules,
-            totalLessons
+            totalLessons,
+            currentLessonName: lesson?.title || ""
           })
           // Generate konten lesson
           const lessonContent = await generateLessonContentWrapper({outlineData: outline, module, lesson})
@@ -205,17 +269,41 @@ export default function ViewOutlinePage() {
             ...lessonContent
           })
           lessonCount++
+          // Insert lesson langsung ke Supabase
+          const moduleNumber = module.number || String(m + 1);
+          const lessonNumber = lesson.number || `${moduleNumber}.${l + 1}`;
+          let videoUrl = "";
+          // Type guard: pastikan lessonContent adalah LessonJSON
+          if (
+            lessonContent &&
+            typeof lessonContent === "object" &&
+            "sections" in lessonContent &&
+            Array.isArray((lessonContent as any).sections)
+          ) {
+            const videoSection = (lessonContent as any).sections.find((s: any) => s.type === "video" && s.data?.url);
+            if (videoSection) {
+              videoUrl = videoSection.data.url;
+            }
+          }
+          const { error: lessonInsertError } = await supabase.from("course_chapters").insert({
+            course_id: insertedCourseId,
+            title: lessonContent.title,
+            content: lessonContent.content,
+            video_url: videoUrl,
+            module_title: module.title,
+            module_number: moduleNumber,
+            number: lessonNumber,
+          });
+          if (lessonInsertError) {
+            // Tangani error insert lesson (opsional: tampilkan notifikasi atau retry)
+            console.error(`Gagal insert lesson '${lessonContent.title}':`, lessonInsertError.message);
+          }
           // Jeda 3 detik
           await delay(3000)
         }
         course.modules.push(newModule)
       }
-      // Simpan ke localStorage
-      const savedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-      savedCourses.push(course)
-      localStorage.setItem("generatedCourses", JSON.stringify(savedCourses))
-      // Setelah selesai, redirect ke halaman daftar course
-      setIsGenerating(false)
+      setIsGenerating(false);
       router.push(`/dashboard/course`)
     } catch (e) {
       setIsGenerating(false)
@@ -243,22 +331,19 @@ export default function ViewOutlinePage() {
     }
   }
 
-  const handleOpenRegenerateModal = async () => {
-    // Fetch outline terbaru dari Supabase
-    const { data } = await supabase.from("outlines").select("*").eq("id", id).single();
-    if (data) {
-      setRegenerateForm({
-        ...data,
-        level: data.level || "",
-        modules: Array.isArray(data.modules_detail) ? data.modules_detail.length : 0,
-        learningGoals: Array.isArray(data.learning_goal)
-          ? data.learning_goal
-          : (typeof data.learning_goal === "string"
-              ? data.learning_goal.split(",").map((g: string) => g.trim()).filter(Boolean)
-              : []),
-      });
-      setShowRegenerateForm(true);
-    }
+  const handleOpenRegenerateModal = () => {
+    setRegenerateForm({
+      title: outline?.title || "",
+      degree: outline?.degree || "",
+      difficulty: outline?.difficulty || outline?.level || "",
+      duration: outline?.duration || "",
+      language: outline?.language || "",
+      chapters: outline?.modules_detail?.length || outline?.chapters || "",
+      topic: outline?.description || "",
+      goals: outline?.learning_goal || "",
+      // tambahkan field lain jika ada
+    });
+    setShowRegenerateForm(true);
   };
 
   const handleRegenerateOutline = async (inputData?: any) => {
@@ -276,16 +361,13 @@ export default function ViewOutlinePage() {
         description: newOutlineData.description,
         topic: newOutlineData.topic,
         degree: newOutlineData.degree,
-        status: newOutlineData.status,
         level: newOutlineData.level,
         duration: newOutlineData.duration,
         language: newOutlineData.language,
         overview: newOutlineData.overview,
         modules: Array.isArray(newOutlineData.modulesList) ? newOutlineData.modulesList.length : 0,
         lessons: Array.isArray(newOutlineData.modulesList) ? newOutlineData.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0,
-        estimatedhours: newOutlineData.estimatedhours,
         modules_detail: newOutlineData.modulesList,
-        learning_goal: Array.isArray(newOutlineData.learningGoals) ? newOutlineData.learningGoals.join(', ') : '',
         updatedAt: new Date().toISOString(),
       }).eq('id', outline.id);
       if (error) {
@@ -307,7 +389,8 @@ export default function ViewOutlinePage() {
     }
   };
 
-  const generateOutlineContent = async (formData: any) => {
+  // Fungsi generate konten outline dengan retry jika modules/lessons kosong
+  const generateOutlineContent = async (formData: any, retryCount = 0) => {
     try {
       const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
       // Add missing fields if needed
@@ -320,6 +403,20 @@ export default function ViewOutlinePage() {
       if (!generatedOutline.status) {
         generatedOutline.status = "Draft"
       }
+      // Validate modulesList and lessons
+      if (!Array.isArray(generatedOutline.modulesList) || generatedOutline.modulesList.length === 0 || generatedOutline.modulesList.some((m: any) => !Array.isArray(m.lessons) || m.lessons.length === 0)) {
+        if (retryCount < 3) {
+          // Retry up to 3 times
+          return await generateOutlineContent(formData, retryCount + 1)
+        } else {
+          throw new Error("Failed to generate outline with modules and lessons after 3 attempts.")
+        }
+      }
+      // Ensure all modules have lessons array
+      generatedOutline.modulesList = generatedOutline.modulesList.map((module: any) => ({
+        ...module,
+        lessons: Array.isArray(module.lessons) ? module.lessons : []
+      }))
       return generatedOutline
     } catch (err) {
       throw err
@@ -334,53 +431,8 @@ export default function ViewOutlinePage() {
         generationConfig: { maxOutputTokens: 8192 },
       });
 
-      const prompt = `Buatkan struktur course yang komprehensif berdasarkan outline berikut:
-
-**INFORMASI COURSE:**
-- Judul: ${outlineData.title}
-- Deskripsi: ${outlineData.description}
-- Topik: ${outlineData.topic}
-- Level: ${outlineData.level}
-- Durasi: ${outlineData.duration}
-- Bahasa: ${outlineData.language}
-- Tujuan Pembelajaran: ${outlineData.learningGoals?.join("; ")}
-
-**STRUKTUR MODULE & LESSON:**
-${outlineData.modulesList.map((module: any) => `- ${module.title}: ${module.lessons.map((lesson: any) => lesson.title).join(', ')}`).join('\n')}
-
-**PETUNJUK GENERASI:**
-Untuk setiap lesson, buatkan:
-1. **Konten Artikel Lengkap** - Artikel komprehensif yang mencakup semua aspek topik
-2. **Gunakan pengetahuan terkini** - Berdasarkan informasi terbaru
-3. **Sertakan Sitasi** - Format [1], [2], [3] di setiap bagian yang menggunakan sumber
-4. **Referensi Lengkap** - Di akhir setiap lesson dengan link sumber yang relevan
-5. **Struktur yang Jelas** - Pendahuluan, konsep dasar, penjelasan detail, contoh praktis, aplikasi, best practices, pitfalls & solusi, ringkasan, referensi
-6. **Format Markdown** - Gunakan heading, bullet points, dan formatting yang rapi
-7. **Contoh & Ilustrasi** - Sertakan contoh nyata dan studi kasus
-8. **Aplikasi Praktis** - Tunjukkan implementasi dan penggunaan
-
-**FORMAT OUTPUT JSON:**
-{
-  "courseId": "unique-id",
-  "title": "${outlineData.title}",
-  "description": "${outlineData.description}",
-  "modules": [
-    {
-      "id": "module-1",
-      "title": "Module Title",
-      "lessons": [
-        {
-          "id": "1.1",
-          "title": "Lesson Title",
-          "content": "Artikel lengkap dalam format markdown dengan sitasi [1], [2], [3] dan section Referensi di akhir..."
-        }
-      ]
-    }
-  ]
-}
-
-**INSTRUKSI KONTEN:**
-Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, statistik, atau informasi spesifik memiliki sumber yang dapat diverifikasi. Sertakan sitasi dan referensi lengkap di setiap lesson.`
+      // Gunakan prompt dari prompts.ts
+      const prompt = OUTLINE_PROMPT(outlineData);
 
       const result = await model.generateContent({ 
         contents: [{ 
@@ -489,15 +541,12 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
             <Link href="/dashboard/outline" className="flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
-              Outlines
+              Outline
             </Link>
             <span className="text-muted-foreground">/</span>
             <span className="text-foreground">{outline.title}</span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-              {outline.status}
-            </Badge>
             <Badge variant="outline" className="border-border bg-muted/50 text-muted-foreground">{outline.level}</Badge>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
@@ -514,15 +563,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
             onClick={handleOpenRegenerateModal}
             disabled={isRegenerating}
           >
-            {isRegenerating ? "Regenerating..." : "Regenerate Outline"}
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50" onClick={handleShare}>
-            <Share2 className="h-4 w-4" />
-            Share
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50" onClick={handleExport}>
-            <Download className="h-4 w-4" />
-            Export
+            {isRegenerating ? "Menghasilkan ulang..." : "Regenerasi Outline"}
           </Button>
           <Button variant="outline" size="sm" className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50" onClick={handleEditClick}>
             <Edit className="h-4 w-4" />
@@ -536,12 +577,12 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
             {isGenerating ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                Creating Course...
+                Membuat Kursus...
               </>
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Create Course
+                Buat Kursus
               </>
             )}
           </Button>
@@ -555,7 +596,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
       </div>
 
       {/* Course Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 text-center">
         <Card className="border border-border shadow-sm bg-card text-card-foreground">
           <CardContent className="p-6 flex items-center gap-4">
             <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 text-primary">
@@ -563,7 +604,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
             </div>
             <div>
               <div className="text-2xl font-bold text-foreground">{Array.isArray(outline.modulesList) ? outline.modulesList.length : 0}</div>
-              <p className="text-sm text-muted-foreground">Modules</p>
+              <p className="text-sm text-muted-foreground">Modul</p>
             </div>
           </CardContent>
         </Card>
@@ -575,31 +616,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
             </div>
             <div>
               <div className="text-2xl font-bold text-foreground">{Array.isArray(outline.modulesList) ? outline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0) : 0}</div>
-              <p className="text-sm text-muted-foreground">Lessons</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border shadow-sm bg-card text-card-foreground">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 text-primary">
-              <Clock className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-foreground">{outline.estimatedhours ? `${outline.estimatedhours}h` : "-"}</div>
-              <p className="text-sm text-muted-foreground">Est. Duration</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border shadow-sm bg-card text-card-foreground">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-lg border border-primary/20 text-primary">
-              <Target className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-foreground">{Array.isArray(outline.learningGoals) ? outline.learningGoals.length : 0}</div>
-              <p className="text-sm text-muted-foreground">Learning Goals</p>
+              <p className="text-sm text-muted-foreground">Materi</p>
             </div>
           </CardContent>
         </Card>
@@ -607,21 +624,21 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
 
       {/* Course Content Tabs */}
       <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 mb-8 bg-muted/50 text-muted-foreground">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Overview</TabsTrigger>
-          <TabsTrigger value="modules" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Modules & Lessons</TabsTrigger>
-          <TabsTrigger value="goals" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Learning Goals</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 text-muted-foreground">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Ringkasan</TabsTrigger>
+          <TabsTrigger value="modules" className="data-[state=active]:bg-background data-[state=active]:text-foreground">Modul & Materi</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <Card className="border border-border shadow-sm bg-card">
             <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Course Overview</h2>
-              <p className="text-muted-foreground leading-relaxed">{outline.overview}</p>
+              <h2 className="text-xl font-semibold mb-4 text-foreground">Ringkasan Kursus</h2>
+              {/* Hapus citation [angka, ...] di akhir kalimat overview */}
+              <p className="text-muted-foreground leading-relaxed">{outline.overview?.replace(/\s*\[[^\]]*\]/g, "")}</p>
 
               {outline.topic && (
                 <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
-                  <h3 className="font-medium text-foreground mb-2">Topic Focus</h3>
+                  <h3 className="font-medium text-foreground mb-2">Fokus Topik</h3>
                   <p className="text-muted-foreground">{outline.topic}</p>
                 </div>
               )}
@@ -632,15 +649,15 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
         <TabsContent value="modules" className="space-y-6">
           <Card className="border border-border shadow-sm bg-card">
             <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Course Modules</h2>
-              <p className="text-muted-foreground mb-6">Detailed breakdown of all modules and lessons</p>
+              <h2 className="text-xl font-semibold mb-4 text-foreground">Daftar Modul</h2>
+              <p className="text-muted-foreground mb-6">Rincian semua modul dan materi</p>
 
               <div className="space-y-8">
                 {Array.isArray(outline.modulesList) ? outline.modulesList.map((module: any, mIdx: number) => (
                   (module && typeof module === 'object' && typeof module.title === 'string' && Array.isArray(module.lessons)) ? (
                     <div key={module.id || mIdx} className="space-y-4">
                       <div className="bg-muted/50 text-muted-foreground px-3 py-1 rounded-md border border-border inline-block text-sm font-medium">
-                        Module {module.id}
+                        Modul {module.id}
                       </div>
                       <h3 className="text-lg font-semibold text-foreground">{module.title}</h3>
                       <div className="space-y-3 pl-4 border-l-2 border-border">
@@ -651,10 +668,7 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
                                 {/* <div className="text-sm font-medium text-foreground">{lesson.id}</div> */}
                                 <div className="font-medium text-foreground">{lesson.title}</div>
                               </div>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <Clock className="h-4 w-4" />
-                                <span>{typeof lesson.duration === 'string' || typeof lesson.duration === 'number' ? lesson.duration : ''}</span>
-                              </div>
+                              {/* Removed duration/time display here */}
                             </div>
                           ) : (
                             <div key={lIdx} className="text-destructive">Invalid lesson data</div>
@@ -670,34 +684,12 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="goals" className="space-y-6">
-          <Card className="border border-border shadow-sm bg-card">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-foreground">
-                <Target className="h-5 w-5 text-primary" />
-                Learning Goals
-              </h2>
-
-              <div className="space-y-4">
-                {outline.learningGoals?.map((goal: string, index: number) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="mt-0.5 text-primary">
-                      <CheckCircle2 className="h-5 w-5" />
-                    </div>
-                    <p className="text-muted-foreground">{goal}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Regenerate Outline Modal */}
       {showRegenerateForm && regenerateForm && (
         <Portal>
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black bg-opacity-50 font-sans">
+          <div className="fixed inset-0 w-screen h-screen bg-black bg-opacity-40 flex flex-col items-center justify-center" style={{zIndex: 999999}}>
             <div className="bg-white border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
               <button
                 type="button"
@@ -716,58 +708,58 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
               >
                 <div className="border-0 shadow-none">
                   <div className="px-8 pt-8">
-                    <h2 className="text-2xl font-bold mb-4 text-center tracking-tight">Edit Outline Input</h2>
+                    <h2 className="text-2xl font-bold mb-4 text-center tracking-tight">Edit Data Outline</h2>
                   </div>
                   <div className="px-8 pb-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label htmlFor="title" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><GraduationCap className="w-5 h-5 text-blue-600" /> Title</label>
+                        <label htmlFor="title" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><GraduationCap className="w-5 h-5 text-blue-600" /> Judul</label>
                         <input
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
                           value={regenerateForm.title || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, title: e.target.value }))}
                           required
-                          placeholder="e.g. Introduction to Web Development"
+                          placeholder="Contoh: Pengantar Pengembangan Web"
                         />
                       </div>
                       <div>
-                        <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Layers className="w-5 h-5 text-blue-600" /> Degree/Field</label>
+                        <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Layers className="w-5 h-5 text-blue-600" /> Bidang Studi</label>
                         <input
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
                           value={regenerateForm.degree || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, degree: e.target.value }))}
-                          placeholder="e.g. Computer Science"
+                          placeholder="Contoh: Informatika"
                         />
                       </div>
                       <div>
-                        <label htmlFor="difficulty" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Difficulty Level</label>
+                        <label htmlFor="difficulty" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Tingkat Kesulitan</label>
                         <input
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
                           value={regenerateForm.difficulty || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, difficulty: e.target.value }))}
-                          placeholder="e.g. Beginner"
+                          placeholder="Contoh: Pemula"
                         />
                       </div>
                       <div>
-                        <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Clock className="w-5 h-5 text-blue-600" /> Estimated Duration</label>
+                        <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</label>
                         <input
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
                           value={regenerateForm.duration || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, duration: e.target.value }))}
-                          placeholder="e.g. 4 weeks"
+                          placeholder="Contoh: 4 minggu"
                         />
                       </div>
                       <div>
-                        <label htmlFor="language" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Globe className="w-5 h-5 text-blue-600" /> Language</label>
+                        <label htmlFor="language" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</label>
                         <input
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
                           value={regenerateForm.language || ""}
                           onChange={e => setRegenerateForm((f: any) => ({ ...f, language: e.target.value }))}
-                          placeholder="e.g. English"
+                          placeholder="Contoh: Indonesia"
                         />
                       </div>
                       <div>
-                        <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> No. of Chapters</label>
+                        <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Bab</label>
                         <input
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
                           value={regenerateForm.chapters || ""}
@@ -777,27 +769,19 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
                       </div>
                     </div>
                     <div className="mt-4">
-                      <label htmlFor="topic" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><FileText className="w-5 h-5 text-blue-600" /> Topic Description</label>
+                      <label htmlFor="topic" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><FileText className="w-5 h-5 text-blue-600" /> Deskripsi Topik</label>
                       <textarea
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[100px] mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base resize-y"
                         value={regenerateForm.topic || ""}
                         onChange={e => setRegenerateForm((f: any) => ({ ...f, topic: e.target.value }))}
                         required
-                        placeholder="Describe the topic in detail"
+                        placeholder="Jelaskan topik secara detail"
                       />
                     </div>
-                    <div className="mt-4">
-                      <label htmlFor="goals" className="flex items-center gap-2 font-semibold text-gray-700 text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Learning Goals</label>
-                      <textarea
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[80px] mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base"
-                        value={regenerateForm.goals || ""}
-                        onChange={e => setRegenerateForm((f: any) => ({ ...f, goals: e.target.value }))}
-                        placeholder="Describe what you want to achieve and any specific topics you want to cover... (one goal per line)"
-                      />
-                    </div>
+                    {/* Removed Learning Goals section */}
                     <div className="flex gap-2 mt-6 justify-end">
-                      <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">Regenerate</button>
-                      <button type="button" className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors" onClick={() => setShowRegenerateForm(false)}>Cancel</button>
+                      <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">Regenerasi</button>
+                      <button type="button" className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors" onClick={() => setShowRegenerateForm(false)}>Batal</button>
                     </div>
                   </div>
                 </div>
@@ -808,27 +792,29 @@ Gunakan pengetahuan terkini tentang setiap lesson topic. Pastikan setiap fakta, 
       )}
 
       {isRegenerating && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center animate-fadeIn min-w-[320px] max-w-xs">
-            {regenerateSuccess ? (
-              <>
-                <div className="w-12 h-12 mb-4 flex items-center justify-center">
-                  <svg className="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                </div>
-                <div className="text-lg font-bold mb-2 text-emerald-600">Regenerate Outline Berhasil!</div>
-                <div className="text-muted-foreground text-sm text-center">Outline berhasil diperbarui.</div>
-              </>
-            ) : (
-              <>
-                <div className="w-12 h-12 mb-4 flex items-center justify-center">
-                  <div className="h-10 w-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-                <div className="text-lg font-bold mb-2 text-foreground">Regenerating Outline...</div>
-                <div className="text-muted-foreground text-sm text-center">AI is creating your new course outline. Please wait a moment.</div>
-              </>
-            )}
+        <Portal>
+          <div className="fixed inset-0 w-screen h-screen bg-black bg-opacity-50 flex flex-col items-center justify-center" style={{zIndex: 999999, pointerEvents: 'auto', top: 0, left: 0, right: 0, bottom: 0}}>
+            <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center animate-fadeIn min-w-[320px] max-w-xs">
+              {regenerateSuccess ? (
+                <>
+                  <div className="w-12 h-12 mb-4 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <div className="text-lg font-bold mb-2 text-blue-600">Regenerasi Outline Berhasil!</div>
+                  <div className="text-muted-foreground text-sm text-center">Outline berhasil diperbarui.</div>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 mb-4 flex items-center justify-center">
+                    <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                  <div className="text-lg font-bold mb-2 text-foreground">Regenerasi outline...</div>
+                  <div className="text-muted-foreground text-sm text-center">AI sedang membuat outline kursus baru Anda. Mohon tunggu sebentar.</div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
     </div>
   )

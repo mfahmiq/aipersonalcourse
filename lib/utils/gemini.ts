@@ -4,7 +4,7 @@ import { OUTLINE_PROMPT, LESSON_CONTENT_PROMPT, LESSON_ASSISTANT_PROMPT } from "
 export async function generateOutline(formData: any, apiKey: string) {
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.0-flash-001",
     tools: [
       { googleSearch: {} } as any
     ],
@@ -19,26 +19,39 @@ export async function generateOutline(formData: any, apiKey: string) {
   const response = result.response
   const text = response.text()
 
-  // Attempt to extract and parse the JSON response from markdown
   let jsonString = text.trim()
   const jsonMatch = jsonString.match(/^```json\n([\s\S]*)\n```$/)
   if (jsonMatch && jsonMatch[1]) {
     jsonString = jsonMatch[1].trim()
   } else {
-    // If no markdown block is found, assume the response is plain JSON
-    // Optionally, try to extract JSON object
     const jsonObjectMatch = jsonString.match(/\{[\s\S]*\}/)
     if (jsonObjectMatch) {
       jsonString = jsonObjectMatch[0]
     }
   }
-  return JSON.parse(jsonString)
+  try {
+    const outline = JSON.parse(jsonString);
+    // Sort modulesList and lessons by 'order' or 'index'
+    if (Array.isArray(outline.modulesList)) {
+      outline.modulesList.sort((a: any, b: any) => (a.order ?? a.index ?? 0) - (b.order ?? b.index ?? 0));
+      outline.modulesList.forEach((module: any) => {
+        if (Array.isArray(module.lessons)) {
+          module.lessons.sort((a: any, b: any) => (a.order ?? a.index ?? 0) - (b.order ?? b.index ?? 0));
+        }
+      });
+    }
+    return outline;
+  } catch (err) {
+    console.error("[Gemini Outline] Failed to parse JSON:", err)
+    console.error("[Gemini Outline] Raw output:", text)
+    throw new Error("Failed to parse outline JSON. Please try again or periksa format output Gemini.")
+  }
 }
 
 export async function generateLessonContent({ outlineData, module, lesson }: any, apiKey: string, validateAndFixReferences?: (content: string) => Promise<string>) {
   const genAI = new GoogleGenerativeAI(apiKey)
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.0-flash-001",
     tools: [
       { googleSearch: {} } as any
     ],

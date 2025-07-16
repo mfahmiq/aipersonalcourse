@@ -1,18 +1,17 @@
-import React, { RefObject } from "react"
+import React, { RefObject, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
 import { ChevronLeft, ChevronRight, FileText, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import rehypeRaw from "rehype-raw"
+import remarkGfm from "remark-gfm"
 import { YouTubePlayer } from "@/components/ui/youtube-player"
-import { FlashCard } from "./FlashCard"
 import Link from "next/link"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { coldarkDark } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { LessonJSON } from "../../lib/utils/lessonTypes";
 
 interface LessonMainContentProps {
   currentLesson: any
@@ -20,14 +19,6 @@ interface LessonMainContentProps {
   progress: number
   completedLessons: string[]
   markAsComplete: () => void
-  showQuiz: boolean
-  setShowQuiz: (show: boolean) => void
-  quizAnswers: Record<number, number>
-  setQuizAnswers: (answers: Record<number, number>) => void
-  quizSubmitted: boolean
-  setQuizSubmitted: (submitted: boolean) => void
-  quizScore: number
-  setQuizScore: (score: number) => void
   allLessons: any[]
   navigateLesson: (dir: "next" | "prev") => void
   contentRef: RefObject<HTMLDivElement>
@@ -81,37 +72,110 @@ function linkifyCitations(content: string, references: any[]) {
   });
 }
 
-export const LessonMainContent: React.FC<LessonMainContentProps> = ({
+// Fungsi untuk membersihkan dan merapikan konten lesson
+function cleanLessonContent(content: string) {
+  // Hilangkan section kosong dan header yang tidak diikuti konten
+  let cleaned = content
+    // Hapus header yang berdiri sendiri tanpa konten
+    .replace(/^(#+)\s*(Introduction|Basic Concepts|Detailed Explanation|Best Practices|Summary)\s*$/gim, '')
+    // Ubah header biasa menjadi h2/h3 agar lebih rapi
+    .replace(/^#+\s*Introduction\s*$/gim, '## Pendahuluan')
+    .replace(/^#+\s*Basic Concepts\s*$/gim, '## Konsep Dasar')
+    .replace(/^#+\s*Detailed Explanation\s*$/gim, '## Penjelasan Detail')
+    .replace(/^#+\s*Best Practices\s*$/gim, '## Praktik Terbaik')
+    .replace(/^#+\s*Summary\s*$/gim, '## Ringkasan');
+  // Tambahkan jarak antar paragraf, tapi jangan di dalam blok tabel
+  const lines = cleaned.split('\n');
+  let result = [];
+  let inTable = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Deteksi awal tabel markdown
+    if (line.trim().startsWith('|')) inTable = true;
+    // Deteksi akhir tabel markdown (baris kosong setelah tabel)
+    if (inTable && line.trim() === '') inTable = false;
+    result.push(line);
+    // Tambahkan newline ekstra hanya jika bukan di dalam tabel dan baris berikutnya bukan bagian tabel
+    if (!inTable && line.trim() !== '' && lines[i+1] && lines[i+1].trim() !== '' && !lines[i+1].trim().startsWith('|')) {
+      result.push('');
+    }
+  }
+  return result.join('\n').trim();
+}
+
+// Fungsi untuk menghapus citation seperti [1], [2], [1, 2, 7] di luar code block
+function removeInlineCitationsOutsideCode(content: string) {
+  // Pisahkan konten berdasarkan code block (```...```)
+  const parts = content.split(/(```[\s\S]*?```)/g);
+  return parts.map(part => {
+    // Jika part adalah code block, biarkan
+    if (/^```[\s\S]*```$/.test(part)) return part;
+    // Jika bukan code block, hapus citation
+    return part.replace(/\[(\d+(?:,\s*\d+)*)\]/g, "");
+  }).join("");
+}
+
+// Fungsi untuk menghapus heading 'Common Pitfalls' dari konten lesson
+function removeCommonPitfallsHeading(content: string) {
+  // Hapus baris header seperti '# Common Pitfalls', '## Common Pitfalls', dst.
+  return content.replace(/^#+\s*Common Pitfalls\s*$/gim, "");
+}
+
+// Fungsi untuk menghapus heading tertentu dari konten lesson
+function removeUnwantedHeadings(content: string) {
+  // Daftar heading yang ingin dihapus
+  const headings = [
+    'Common Pitfalls',
+    'Introduction',
+    'Basic Concepts',
+    'Detailed Explanation',
+    'Real-world Examples',
+    'Code Samples (if applicable)',
+    'Best Practices',
+    'Summary',
+  ];
+  let cleaned = content;
+  for (const heading of headings) {
+    // Hapus baris header seperti '# Heading', '## Heading', dst.
+    const regex = new RegExp(`^#{1,6}\\s*${heading}\\s*$`, 'gim');
+    cleaned = cleaned.replace(regex, '');
+  }
+  return cleaned;
+}
+
+// Fungsi untuk menambah dua baris kosong antar paragraf
+function addDoubleSpacingBetweenParagraphs(content: string) {
+  // Tambahkan dua baris kosong antar paragraf, kecuali di dalam tabel atau code block
+  // Ganti satu baris kosong antar paragraf menjadi dua baris kosong
+  return content.replace(/([^\n])\n(?=[^\n])/g, '$1\n\n');
+}
+
+type OmittedProps = Omit<LessonMainContentProps, 'showQuiz' | 'setShowQuiz' | 'quizAnswers' | 'setQuizAnswers' | 'quizSubmitted' | 'setQuizSubmitted' | 'quizScore' | 'setQuizScore'>;
+
+export const LessonMainContent: React.FC<OmittedProps> = ({
   currentLesson,
   course,
   progress,
   completedLessons,
   markAsComplete,
-  showQuiz,
-  setShowQuiz,
-  quizAnswers,
-  setQuizAnswers,
-  quizSubmitted,
-  setQuizSubmitted,
-  quizScore,
-  setQuizScore,
   allLessons,
   navigateLesson,
   contentRef,
   setSidebarOpen,
 }) => {
+  // State to keep track of h1 count for numbering
+  const h1CountRef = useRef(0);
+
   if (!currentLesson) return <div>Lesson not found</div>;
 
-  const [currentFlashIndex, setCurrentFlashIndex] = React.useState(0);
-  const [flashSelections, setFlashSelections] = React.useState<Record<number, number | null>>({});
-  const [flashShowAnswer, setFlashShowAnswer] = React.useState<Record<number, boolean>>({});
+  // Reset h1 count before each render
+  h1CountRef.current = 0;
 
-  // Reset flashcard state when lesson/quiz berubah
-  React.useEffect(() => {
-    setCurrentFlashIndex(0);
-    setFlashSelections({});
-    setFlashShowAnswer({});
-  }, [currentLesson?.id, showQuiz]);
+  // Flatten all lessons for navigation
+  const flatLessons = Array.isArray(allLessons) && allLessons[0]?.lessons
+    ? allLessons.flatMap((mod: any) => mod.lessons)
+    : allLessons;
+  const currentIdx = flatLessons.findIndex((l: any) => l.id === currentLesson.id);
 
   return (
     <div className="max-w-4xl mx-auto py-4 lg:py-6 px-3">
@@ -119,10 +183,7 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 mb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{currentLesson.title}</h1>
-          <div className="flex items-center mt-2 text-muted-foreground">
-            <Clock className="h-4 w-4 mr-1" />
-            <span>{currentLesson.duration}</span>
-          </div>
+          {/* Removed duration/time display here */}
         </div>
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 w-full lg:w-auto mb-4 sm:mb-0">
           <Button
@@ -131,7 +192,7 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
             className="block lg:hidden"
             onClick={() => setSidebarOpen(true)}
           >
-            ☰ Lessons
+            ☰ Daftar Materi
           </Button>
           <Button
             onClick={markAsComplete}
@@ -154,12 +215,12 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
                     </g>
                   </svg>
                 </div>
-                <span>Completed</span>
+                <span>Selesai</span>
               </>
             ) : (
               <>
                 <div className="w-4 h-4 mr-2 rounded-full border-2 border-current"></div>
-                <span>Mark as Complete</span>
+                <span>Tandai Selesai</span>
               </>
             )}
           </Button>
@@ -174,9 +235,12 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
       </div>
       {/* Video Player */}
       <YouTubePlayer
+        videoUrl={currentLesson.videoUrl}
         lessonTitle={currentLesson.title}
         lessonContent={typeof currentLesson.content === 'string' ? currentLesson.content : ''}
         courseTopic={course?.topic || course?.title || ''}
+        courseId={course?.courseId || course?.id}
+        chapterId={currentLesson.id}
       />
       {/* Lesson Content */}
       <div ref={contentRef} className="bg-card border rounded-lg shadow-sm p-6 mb-8">
@@ -184,8 +248,25 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
           <FileText className="h-5 w-5 text-primary" />
           <h2 className="text-xl font-semibold text-foreground">{currentLesson.title}</h2>
         </div>
-        <div className="prose max-w-none text-foreground">
+        <div
+          className="prose max-w-none text-foreground"
+          style={{
+            marginTop: 0,
+            marginBottom: 0,
+            '--lesson-h1-margin': '2.5em',
+            '--lesson-h2-margin': '2em',
+            '--lesson-h3-margin': '1.5em',
+            '--lesson-p-margin': '1.5em',
+          } as React.CSSProperties}
+        >
+          <style>{`
+            .prose h1 { font-size: 2.25rem; margin-top: var(--lesson-h1-margin); margin-bottom: var(--lesson-h1-margin); font-weight: bold; }
+            .prose h2 { font-size: 1.5rem; margin-top: var(--lesson-h2-margin); margin-bottom: var(--lesson-h2-margin); font-weight: bold; }
+            .prose h3 { font-size: 1.25rem; margin-top: var(--lesson-h3-margin); margin-bottom: var(--lesson-h3-margin); font-weight: 600; }
+            .prose p { margin-top: var(--lesson-p-margin); margin-bottom: var(--lesson-p-margin); }
+          `}</style>
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw]}
             components={{
               code(props: any) {
@@ -211,52 +292,80 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
                     {children}
                   </pre>
                 );
-              }
+              },
+              table: ({node, ...props}) => (
+                <table className="min-w-full border border-gray-300 my-4 text-sm">{props.children}</table>
+              ),
+              thead: ({node, ...props}) => (
+                <thead className="bg-gray-100">{props.children}</thead>
+              ),
+              tbody: ({node, ...props}) => <tbody>{props.children}</tbody>,
+              tr: ({node, ...props}) => (
+                <tr className="border-b border-gray-200">{props.children}</tr>
+              ),
+              th: ({node, ...props}) => (
+                <th className="px-3 py-2 text-left font-semibold border border-gray-300 bg-gray-50">{props.children}</th>
+              ),
+              td: ({node, ...props}) => (
+                <td className="px-3 py-2 border border-gray-300 align-top">{props.children}</td>
+              ),
             }}
-          >{linkifyCitations(removeReferencesSection(currentLesson.content), extractReferencesFromContent(currentLesson.content || ""))}</ReactMarkdown>
-          {/* Render referensi jika ada */}
-          {(() => {
-            const refs = extractReferencesFromContent(currentLesson.content || "");
-            if (refs.length === 0) return null;
-            return (
-              <div className="mt-8 border-t pt-4">
-                <div className="font-semibold mb-2">Referensi</div>
-                <ol className="list-decimal ml-6 space-y-1">
-                  {refs.map((ref: any, idx: number) => (
-                    <li key={idx} id={ref.number ? `ref-${ref.number}` : undefined}>
-                      <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-                        {ref.text}
-                      </a>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            );
-          })()}
+          >
+            {removeReferencesSection(removeInlineCitationsOutsideCode(typeof currentLesson.content === 'string' ? currentLesson.content : ''))}
+          </ReactMarkdown>
         </div>
       </div>
-      {/* Quiz Section */}
-      
+      {/* Referensi Section */}
+      {(() => {
+        const references = extractReferencesFromContent(currentLesson.content || "");
+        return references.length > 0 ? (
+          <div className="bg-card border rounded-lg shadow-sm p-6 mb-8">
+            <h3 className="text-lg font-semibold mb-2">Referensi</h3>
+            <ul className="list-decimal list-inside text-muted-foreground">
+              {references.map((ref, idx) => {
+                if (!ref) return null;
+                return (
+                  <li key={idx} id={`ref-${ref.number || idx + 1}`}>
+                    {ref.url ? (
+                      <a href={ref.url} target="_blank" rel="noopener noreferrer" className="underline text-blue-600">
+                        {ref.text && ref.text.length > 0 ? ref.text : ref.url}
+                      </a>
+                    ) : (
+                      ref.text
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null;
+      })()}
       {/* Navigation Buttons */}
       <div className="flex flex-col sm:flex-row justify-between gap-4 mt-8 pt-4 border-t">
         <Button
           variant="outline"
           size="sm"
           onClick={() => navigateLesson("prev")}
-          disabled={Array.isArray(allLessons) && allLessons.findIndex((l) => l.id === currentLesson.id) === 0}
+          disabled={currentIdx === 0}
           className="w-full sm:w-auto px-3 py-1.5"
         >
           <ChevronLeft className="h-4 w-4 mr-2" />
-          Previous Lesson
+          Materi Sebelumnya
         </Button>
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigateLesson("next")}
-          disabled={Array.isArray(allLessons) && allLessons.findIndex((l) => l.id === currentLesson.id) === allLessons.length - 1}
+          onClick={() => {
+            if (currentIdx === flatLessons.length - 1) {
+              // Optionally, handle finish logic here (e.g., show a message or redirect)
+            } else {
+              navigateLesson("next");
+            }
+          }}
+          disabled={currentIdx === flatLessons.length - 1}
           className="w-full sm:w-auto px-3 py-1.5"
         >
-          Next Lesson
+          {currentIdx === flatLessons.length - 1 ? "Finish Lesson" : "Materi Berikutnya"}
           <ChevronRight className="h-4 w-4 ml-2" />
         </Button>
       </div>

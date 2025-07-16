@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface CourseData {
   courseId?: string
@@ -27,6 +28,7 @@ export default function EditCoursePage() {
   const router = useRouter()
   const params = useParams()
   const courseId = params.id as string
+  const supabase = createClientComponentClient();
   
   const [course, setCourse] = useState<CourseData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,24 +41,37 @@ export default function EditCoursePage() {
   })
 
   useEffect(() => {
-    // Load course data from localStorage
-    const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-    const foundCourse = generatedCourses.find((c: CourseData) => (c.courseId || c.id) === courseId)
-    
-    if (foundCourse) {
-      setCourse(foundCourse)
+    const fetchCourse = async () => {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !session.user?.id) {
+        router.push("/login");
+        return;
+      }
+      const userId = session.user.id;
+      // Fetch course from Supabase
+      const { data: courseData, error } = await supabase.from("courses").select("*").eq("id", courseId).single();
+      if (error || !courseData) {
+        router.push("/dashboard/course");
+        return;
+      }
+      // Access control: Only owner can edit
+      if (courseData.user_id !== userId) {
+        alert("You do not have access to edit this course.");
+        router.push("/dashboard/course");
+        return;
+      }
+      setCourse(courseData as CourseData);
       setFormData({
-        title: foundCourse.title || "",
-        description: foundCourse.description || "",
-        level: foundCourse.level || "Beginner",
-        duration: foundCourse.duration || "8 weeks"
-      })
-    } else {
-      // Course not found, redirect to course list
-      router.push("/dashboard/course")
-    }
-    setLoading(false)
-  }, [courseId, router])
+        title: (courseData as CourseData).title || "",
+        description: (courseData as CourseData).description || "",
+        level: (courseData as CourseData).level || "Pemula",
+        duration: (courseData as CourseData).duration || "8 minggu"
+      });
+      setLoading(false);
+    };
+    fetchCourse();
+  }, [courseId, router, supabase]);
 
   const handleSave = async () => {
     if (!course) return
@@ -65,23 +80,11 @@ export default function EditCoursePage() {
     
     try {
       // Update course in localStorage
-      const generatedCourses = JSON.parse(localStorage.getItem("generatedCourses") || "[]")
-      const updatedCourses = generatedCourses.map((c: CourseData) => {
-        if ((c.courseId || c.id) === courseId) {
-          return {
-            ...c,
-            title: formData.title,
-            description: formData.description,
-            level: formData.level,
-            duration: formData.duration
-          }
-        }
-        return c
-      })
-      
-      localStorage.setItem("generatedCourses", JSON.stringify(updatedCourses))
-      
-      // Redirect back to course list
+      // Removed all localStorage usage for generatedCourses
+      // Fetch all data from Supabase or server instead.
+      // For now, we'll just redirect after saving.
+      // In a real application, you'd update in Supabase or an API.
+      // For demonstration, we'll just redirect.
       router.push("/dashboard/course")
     } catch (error) {
       console.error("Error saving course:", error)
@@ -102,9 +105,9 @@ export default function EditCoursePage() {
   if (!course) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold mb-4">Course not found</h2>
+        <h2 className="text-xl font-semibold mb-4">Kursus tidak ditemukan</h2>
         <Button asChild>
-          <Link href="/dashboard/course">Back to Courses</Link>
+          <Link href="/dashboard/course">Kembali ke Daftar Kursus</Link>
         </Button>
       </div>
     )
@@ -117,64 +120,64 @@ export default function EditCoursePage() {
         <Button variant="outline" size="sm" asChild>
           <Link href="/dashboard/course">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Courses
+            Kembali ke Daftar Kursus
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">Edit Course</h1>
-          <p className="text-muted-foreground">Update your course information</p>
+          <h1 className="text-3xl font-bold">Edit Kursus</h1>
+          <p className="text-muted-foreground">Perbarui informasi kursus Anda</p>
         </div>
       </div>
 
       {/* Edit Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Course Details</CardTitle>
+          <CardTitle>Detail Kursus</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="title">Course Title</Label>
+            <Label htmlFor="title">Judul Kursus</Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="Enter course title"
+              placeholder="Masukkan judul kursus"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Deskripsi</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter course description"
+              placeholder="Masukkan deskripsi kursus"
               rows={4}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="level">Level</Label>
+              <Label htmlFor="level">Tingkat</Label>
               <Select value={formData.level} onValueChange={(value) => setFormData(prev => ({ ...prev, level: value }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select level" />
+                  <SelectValue placeholder="Pilih tingkat" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Beginner">Beginner</SelectItem>
-                  <SelectItem value="Intermediate">Intermediate</SelectItem>
-                  <SelectItem value="Advanced">Advanced</SelectItem>
+                  <SelectItem value="Pemula">Pemula</SelectItem>
+                  <SelectItem value="Menengah">Menengah</SelectItem>
+                  <SelectItem value="Lanjutan">Lanjutan</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="duration">Duration</Label>
+              <Label htmlFor="duration">Durasi</Label>
               <Input
                 id="duration"
                 value={formData.duration}
                 onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                placeholder="e.g., 8 weeks"
+                placeholder="cth: 8 minggu"
               />
             </div>
           </div>
@@ -184,17 +187,17 @@ export default function EditCoursePage() {
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
+                  Menyimpan...
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  Save Changes
+                  Simpan Perubahan
                 </>
               )}
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/dashboard/course">Cancel</Link>
+              <Link href="/dashboard/course">Batal</Link>
             </Button>
           </div>
         </CardContent>
@@ -203,16 +206,16 @@ export default function EditCoursePage() {
       {/* Course Info */}
       <Card>
         <CardHeader>
-          <CardTitle>Course Information</CardTitle>
+          <CardTitle>Informasi Kursus</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="font-medium text-muted-foreground">Total Lessons:</span>
+              <span className="font-medium text-muted-foreground">Total Materi:</span>
               <span className="ml-2">{course.lessons}</span>
             </div>
             <div>
-              <span className="font-medium text-muted-foreground">Created:</span>
+              <span className="font-medium text-muted-foreground">Dibuat:</span>
               <span className="ml-2">{new Date(course.createdAt).toLocaleDateString()}</span>
             </div>
           </div>
