@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, BookOpen, Sparkles, MessageSquare } from "lucide-react"
 import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
+import SparklesCanvas from "../components/SparklesCanvas"
+import FloatingIconsBackground from "../components/FloatingIconsBackground"
 
 export default function Home() {
   const [isVisible, setIsVisible] = useState(false)
@@ -14,7 +17,21 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background relative overflow-hidden z-20">
+      {/* Sparkles Background Animation */}
+      <SparklesCanvas />
+      <FloatingIconsBackground />
+      {/* Grid Pattern Overlay */}
+      <div className="pointer-events-none fixed inset-0 z-0 opacity-20 dark:opacity-10" aria-hidden="true">
+        <svg className="w-full h-full" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" className="text-foreground/10" />
+        </svg>
+      </div>
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
