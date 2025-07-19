@@ -193,8 +193,13 @@ export default function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-muted rounded-lg border border-border flex items-center justify-center">
-                        <Play className="h-6 w-6 text-muted-foreground" />
+                      <div className="w-20 h-14 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden">
+                        <img
+                          src={course.image || "/placeholder.svg"}
+                          alt={course.title}
+                          className="object-cover w-full h-full"
+                          loading="lazy"
+                        />
                       </div>
                       <div className="flex-1">
                         <h3 className="font-semibold text-foreground">{course.title}</h3>
