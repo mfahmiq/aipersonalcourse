@@ -1,13 +1,23 @@
+/**
+ * Settings Page Component
+ * Halaman pengaturan profil user (nama, email, password)
+ * Sinkronisasi data antara Supabase Auth dan tabel settings
+ */
+
 "use client"
 
 import { useEffect, useState } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-console.log("SettingsPage file loaded");
-
+/**
+ * SettingsPage Component
+ * Komponen utama untuk mengelola pengaturan profil user
+ * 
+ * @returns JSX element untuk halaman pengaturan profil
+ */
 export default function SettingsPage() {
   const supabase = createClientComponentClient();
-  console.log("SettingsPage component rendered");
+  // State untuk loading, data settings, input baru, pesan, dan userId
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState({ full_name: "", email: "" })
   const [newName, setNewName] = useState("")
@@ -16,36 +26,30 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("")
   const [userId, setUserId] = useState<string | null>(null)
 
+  /**
+   * Fetch data settings user dari Supabase dan Auth
+   * Sinkronisasi data settings dan metadata user
+   */
   useEffect(() => {
-    console.log("Settings useEffect running...");
     const fetchSettings = async () => {
-      console.log("Start fetchSettings");
       setLoading(true)
       const { data: { session } } = await supabase.auth.getSession();
-      console.log("Session:", session);
       if (!session) {
-        console.log("No session, returning");
         setLoading(false);
         return;
       }
       setUserId(session.user.id);
-      console.log("UserId set:", session.user.id);
       const authEmail = session.user.email || "";
       const authFullName = session.user.user_metadata?.full_name || "";
-      console.log("authEmail:", authEmail, "authFullName:", authFullName);
       // Fetch from settings table
       const { data: settingsData, error } = await supabase
         .from("settings")
         .select("full_name, email")
         .eq("id", session.user.id)
         .single();
-      console.log("settingsData:", settingsData, "error:", error);
-      // Debug log for fetched data
-      console.log("settingsData:", settingsData, "authEmail:", authEmail, "authFullName:", authFullName);
       // Fallback logic (treat 'EMPTY' as empty)
       let displayName = (settingsData?.full_name && settingsData.full_name !== "EMPTY") ? settingsData.full_name : authFullName || "";
       let displayEmail = (settingsData?.email && settingsData.email !== "EMPTY") ? settingsData.email : authEmail || "";
-      console.log("displayName:", displayName, "displayEmail:", displayEmail);
       setSettings({
         full_name: displayName,
         email: displayEmail
@@ -77,7 +81,10 @@ export default function SettingsPage() {
     fetchSettings()
   }, [])
 
-  // New unified save handler
+  /**
+   * Handler untuk menyimpan perubahan nama, email, dan password
+   * Sinkronisasi ke tabel settings dan Supabase Auth
+   */
   const handleSaveAll = async () => {
     setMessage("")
     setLoading(true)
@@ -103,7 +110,6 @@ export default function SettingsPage() {
       // Hanya kirim field email saja
       const { error } = await supabase.auth.updateUser({ email: newEmail })
       if (error) {
-        console.log('Supabase Auth update email error:', error);
       }
       authError = error
     }

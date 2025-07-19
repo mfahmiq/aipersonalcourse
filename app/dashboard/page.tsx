@@ -1,3 +1,9 @@
+/**
+ * Dashboard Page Component
+ * Halaman utama dashboard user untuk menampilkan statistik kursus dan aktivitas terbaru
+ * Menyediakan ringkasan progres belajar dan daftar aktivitas kursus terakhir
+ */
+
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,24 +14,40 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+/**
+ * Dashboard Component
+ * Komponen utama dashboard user
+ * Menampilkan statistik kursus, progres, dan aktivitas terbaru
+ *
+ * @returns JSX element untuk halaman dashboard
+ */
 export default function Dashboard() {
   const router = useRouter();
   const supabase = createClientComponentClient();
+  // State statistik kursus
   const [stats, setStats] = useState({
     total: 0,
     inProgress: 0,
     completed: 0,
     avgProgress: 0,
   })
+  // State nama user
   const [userName, setUserName] = useState<string>("")
+  // State aktivitas terbaru
   const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(true);
   const [notLoggedIn, setNotLoggedIn] = useState(false);
 
+  /**
+   * Fetch data statistik, nama user, dan aktivitas terbaru saat mount
+   */
   useEffect(() => {
     setIsMounted(true)
 
+    /**
+     * Fetch nama user dari tabel settings
+     */
     const fetchUserName = async (userId: string) => {
       // Fetch from settings table instead of profile
       const { data: settings, error } = await supabase
@@ -40,6 +62,9 @@ export default function Dashboard() {
       }
     };
 
+    /**
+     * Fetch statistik kursus user
+     */
     const fetchStats = async (userId: string) => {
       const { data: courses, error: coursesError } = await supabase
         .from("courses")
@@ -47,7 +72,6 @@ export default function Dashboard() {
         .eq("user_id", userId);
 
       if (coursesError) {
-        console.error("Error fetching courses:", coursesError);
         return;
       }
 
@@ -64,7 +88,9 @@ export default function Dashboard() {
       });
     };
 
-    // Fetch recent activity from courses table
+    /**
+     * Fetch aktivitas terbaru user dari tabel courses
+     */
     const fetchRecentActivity = async (userId: string) => {
       const { data: courses, error } = await supabase
         .from("courses")
@@ -73,14 +99,15 @@ export default function Dashboard() {
         .order("updated_at", { ascending: false })
         .limit(10);
       if (error) {
-        console.error("Error fetching recent courses:", error);
         setRecentActivity([]);
         return;
       }
-      console.log("Recent courses:", courses);
       setRecentActivity(courses || []);
     };
 
+    /**
+     * Fetch semua data user (nama, stats, aktivitas)
+     */
     const fetchAll = async () => {
       const { data } = await supabase.auth.getSession();
       const session = data.session;
@@ -92,7 +119,6 @@ export default function Dashboard() {
         return;
       }
       const userId = session.user.id;
-      console.log("Current userId:", userId);
       await fetchUserName(userId);
       await fetchStats(userId);
       await fetchRecentActivity(userId);
@@ -111,6 +137,7 @@ export default function Dashboard() {
 
   if (!isMounted) return null
 
+  // Data statistik untuk cards
   const statsData = [
     { title: "Total Kursus", value: stats.total, subtitle: "Kursus yang diikuti", icon: BookOpen, color: "bg-blue-100 text-blue-600" },
     { title: "Sedang Berjalan", value: stats.inProgress, subtitle: "Belajar aktif", icon: Clock, color: "bg-purple-100 text-purple-600" },
@@ -118,7 +145,7 @@ export default function Dashboard() {
     { title: "Rata-rata Progres", value: `${stats.avgProgress}%`, subtitle: "Dari semua kursus", icon: TrendingUp, color: "bg-pink-100 text-pink-600" },
   ]
 
-  // Only show recent activity for courses with progress > 0
+  // Filter aktivitas terbaru hanya untuk kursus yang sudah ada progres
   const filteredRecentActivity = Array.isArray(recentActivity)
     ? recentActivity.filter((course) => (course.progress ?? 0) > 0)
     : [];

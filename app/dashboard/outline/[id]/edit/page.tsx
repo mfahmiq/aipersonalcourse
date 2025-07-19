@@ -1,7 +1,12 @@
+/**
+ * Edit Outline Page Component
+ * Halaman untuk mengedit outline kursus, termasuk judul, deskripsi, modul, dan lesson
+ * Menyediakan form dinamis untuk mengelola struktur outline kursus
+ */
+
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -17,11 +22,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+/**
+ * EditOutlinePage Component
+ * Komponen utama untuk mengedit outline kursus
+ * 
+ * @returns JSX element untuk halaman edit outline
+ */
 export default function EditOutlinePage() {
+  // Router dan params
   const router = useRouter()
   const { id } = useParams()
   const outlineId = Array.isArray(id) ? id[0] : id
   const [isMounted, setIsMounted] = useState(false)
+  // State untuk form data outline
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -34,9 +47,14 @@ export default function EditOutlinePage() {
     overview: "",
     learningGoals: [] as string[],
   })
+  // State untuk modul dan lesson
   const [modules, setModules] = useState<any[]>([])
   const supabase = createClientComponentClient();
 
+  /**
+   * Fetch outline dari database berdasarkan ID
+   * Mengisi formData dan modules dari data outline
+   */
   useEffect(() => {
     setIsMounted(true)
     const fetchOutline = async () => {
@@ -44,7 +62,7 @@ export default function EditOutlinePage() {
       if (error || !data) {
         router.push("/dashboard/outline");
       } else {
-      setFormData({
+        setFormData({
           title: data.title || "",
           description: data.description || "",
           topic: data.topic || "",
@@ -62,44 +80,58 @@ export default function EditOutlinePage() {
     if (outlineId) fetchOutline();
   }, [outlineId, router]);
 
-  // Handle input changes
+  /**
+   * Handler untuk perubahan input form
+   */
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Handle learning goals changes
+  /**
+   * Handler untuk perubahan learning goals
+   */
   const handleLearningGoalChange = (index: number, value: string) => {
     const updatedGoals = [...formData.learningGoals]
     updatedGoals[index] = value
     setFormData((prev) => ({ ...prev, learningGoals: updatedGoals }))
   }
 
-  // Add new learning goal
+  /**
+   * Menambah learning goal baru
+   */
   const addLearningGoal = () => {
     setFormData((prev) => ({ ...prev, learningGoals: [...prev.learningGoals, ""] }))
   }
 
-  // Remove learning goal
+  /**
+   * Menghapus learning goal
+   */
   const removeLearningGoal = (index: number) => {
     const updatedGoals = formData.learningGoals.filter((_, i) => i !== index)
     setFormData((prev) => ({ ...prev, learningGoals: updatedGoals }))
   }
 
-  // Handle module title change
+  /**
+   * Handler perubahan judul modul
+   */
   const handleModuleTitleChange = (moduleIndex: number, value: string) => {
     const updatedModules = [...modules]
     updatedModules[moduleIndex].title = value
     setModules(updatedModules)
   }
 
-  // Handle lesson changes
+  /**
+   * Handler perubahan lesson dalam modul
+   */
   const handleLessonChange = (moduleIndex: number, lessonIndex: number, field: string, value: string) => {
     const updatedModules = [...modules]
     updatedModules[moduleIndex].lessons[lessonIndex][field as "title"] = value
     setModules(updatedModules)
   }
 
-  // Add new lesson to a module
+  /**
+   * Menambah lesson baru ke modul
+   */
   const addLesson = (moduleIndex: number) => {
     const updatedModules = [...modules]
     updatedModules[moduleIndex].lessons.push({
@@ -109,7 +141,9 @@ export default function EditOutlinePage() {
     setModules(updatedModules)
   }
 
-  // Remove lesson from a module
+  /**
+   * Menghapus lesson dari modul
+   */
   const removeLesson = (moduleIndex: number, lessonIndex: number) => {
     const updatedModules = [...modules]
     updatedModules[moduleIndex].lessons.splice(lessonIndex, 1)
@@ -121,7 +155,9 @@ export default function EditOutlinePage() {
     setModules(updatedModules)
   }
 
-  // Add new module
+  /**
+   * Menambah modul baru
+   */
   const addModule = () => {
     const newModuleId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     setModules([
@@ -139,21 +175,23 @@ export default function EditOutlinePage() {
     ])
   }
 
-  // Remove module
+  /**
+   * Menghapus modul
+   */
   const removeModule = (moduleIndex: number) => {
     const updatedModules = modules.filter((_, i) => i !== moduleIndex)
     setModules(updatedModules)
   }
 
-  // Handle form submission
+  /**
+   * Handler submit form untuk update outline ke database
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isMounted) return;
-
-    // Calculate updated stats
+    // Hitung total lesson
     const totalLessons = Array.isArray(modules) ? modules.reduce((total: number, module: any) => total + (Array.isArray(module.lessons) ? module.lessons.length : 0), 0) : 0;
-
-    // Prepare update payload
+    // Payload update
     const updatePayload = {
       title: formData.title,
       description: formData.description,
@@ -168,13 +206,11 @@ export default function EditOutlinePage() {
       modules_detail: modules,
       updatedAt: new Date().toISOString(),
     };
-
     const { error } = await supabase.from('outlines').update(updatePayload).eq('id', outlineId);
     if (error) {
       alert('Gagal memperbarui outline: ' + error.message);
       return;
     }
-
     alert('Outline berhasil diperbarui!');
     router.push(`/dashboard/outline/${outlineId}`);
   };

@@ -1,19 +1,38 @@
+/**
+ * SparklesCanvas Component
+ * Komponen React untuk menampilkan efek partikel sparkles di background
+ * Menggunakan canvas dan animasi manual untuk efek visual
+ */
+
 import { useEffect, useRef } from "react";
 
+// Konstanta jumlah partikel dan properti partikel
 const PARTICLE_COUNT = 120;
-const PARTICLE_SIZE_MIN = 1.2; // Increased for visibility
-const PARTICLE_SIZE_MAX = 2.2; // Increased for visibility
-const SPEED = 0.08;
+const PARTICLE_SIZE_MIN = 1.2; // Ukuran minimum partikel
+const PARTICLE_SIZE_MAX = 2.2; // Ukuran maksimum partikel
+const SPEED = 0.08;            // Kecepatan partikel
 
+/**
+ * Menghasilkan angka acak antara a dan b
+ */
 function randomBetween(a: number, b: number) {
   return a + Math.random() * (b - a);
 }
 
+/**
+ * Mendapatkan warna partikel berdasarkan mode gelap/terang
+ * @param isDark - true jika dark mode
+ * @returns string warna RGBA
+ */
 function getColor(isDark: boolean) {
   // Always blue in light mode, white in dark mode
   return isDark ? "rgba(255,255,255,0.7)" : "rgba(59,130,246,0.9)"; // #3B82F6
 }
 
+/**
+ * Komponen utama SparklesCanvas
+ * Membuat dan menganimasikan partikel di canvas
+ */
 const SparklesCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
@@ -35,10 +54,10 @@ const SparklesCanvas = () => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
 
-    // Detect dark mode using Tailwind's class on <html>
+    // Deteksi dark mode menggunakan class Tailwind di <html>
     const isDark = document.documentElement.classList.contains("dark");
 
-    // Initialize particles
+    // Inisialisasi partikel
     particles.current = Array.from({ length: PARTICLE_COUNT }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -47,6 +66,10 @@ const SparklesCanvas = () => {
       dy: randomBetween(-SPEED, SPEED),
     }));
 
+    /**
+     * Fungsi animasi utama
+     * Mengupdate posisi dan menggambar partikel
+     */
     function animate() {
       if (!ctx) return;
       ctx.clearRect(0, 0, width, height);
@@ -60,7 +83,7 @@ const SparklesCanvas = () => {
         ctx.shadowBlur = 0;
         p.x += p.dx;
         p.y += p.dy;
-        // Wrap around
+        // Wrap around jika keluar layar
         if (p.x < 0) p.x += width;
         if (p.x > width) p.x -= width;
         if (p.y < 0) p.y += height;
@@ -70,6 +93,9 @@ const SparklesCanvas = () => {
     }
     animate();
 
+    /**
+     * Handler resize window untuk update ukuran canvas
+     */
     function handleResize() {
       if (!canvas || !ctx) return;
       width = window.innerWidth;

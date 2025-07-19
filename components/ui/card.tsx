@@ -1,7 +1,22 @@
+/**
+ * Card Components
+ * Kumpulan komponen untuk membuat card layout yang konsisten
+ * Termasuk Card, CardHeader, CardTitle, CardDescription, CardContent, dan CardFooter
+ */
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Card Component
+ * Container utama untuk card dengan styling yang konsisten
+ * 
+ * @param className - Additional CSS classes
+ * @param props - Additional div props
+ * @param ref - Forwarded ref
+ * @returns JSX div element dengan card styling
+ */
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -17,6 +32,15 @@ const Card = React.forwardRef<
 ))
 Card.displayName = "Card"
 
+/**
+ * CardHeader Component
+ * Header section untuk card dengan padding dan spacing yang konsisten
+ * 
+ * @param className - Additional CSS classes
+ * @param props - Additional div props
+ * @param ref - Forwarded ref
+ * @returns JSX div element untuk card header
+ */
 const CardHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -29,6 +53,15 @@ const CardHeader = React.forwardRef<
 ))
 CardHeader.displayName = "CardHeader"
 
+/**
+ * CardTitle Component
+ * Title untuk card dengan typography yang konsisten
+ * 
+ * @param className - Additional CSS classes
+ * @param props - Additional div props
+ * @param ref - Forwarded ref
+ * @returns JSX div element untuk card title
+ */
 const CardTitle = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -44,6 +77,15 @@ const CardTitle = React.forwardRef<
 ))
 CardTitle.displayName = "CardTitle"
 
+/**
+ * CardDescription Component
+ * Description untuk card dengan styling muted text
+ * 
+ * @param className - Additional CSS classes
+ * @param props - Additional div props
+ * @param ref - Forwarded ref
+ * @returns JSX div element untuk card description
+ */
 const CardDescription = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -56,6 +98,15 @@ const CardDescription = React.forwardRef<
 ))
 CardDescription.displayName = "CardDescription"
 
+/**
+ * CardContent Component
+ * Content section untuk card dengan padding yang konsisten
+ * 
+ * @param className - Additional CSS classes
+ * @param props - Additional div props
+ * @param ref - Forwarded ref
+ * @returns JSX div element untuk card content
+ */
 const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -64,6 +115,15 @@ const CardContent = React.forwardRef<
 ))
 CardContent.displayName = "CardContent"
 
+/**
+ * CardFooter Component
+ * Footer section untuk card dengan flex layout dan padding
+ * 
+ * @param className - Additional CSS classes
+ * @param props - Additional div props
+ * @param ref - Forwarded ref
+ * @returns JSX div element untuk card footer
+ */
 const CardFooter = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>

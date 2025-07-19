@@ -1,3 +1,9 @@
+/**
+ * Course Page Component
+ * Halaman utama untuk menampilkan dan mengelola semua kursus user
+ * Menyediakan fitur pencarian, filter, dan navigasi ke kursus
+ */
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -12,41 +18,63 @@ import { BookOpen, Clock, Play, Search, Filter, Plus, Sparkles, Edit, Trash2 } f
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-// Tambahkan tipe Course agar nextLessonId dikenali
+/**
+ * Interface untuk data Course
+ * Mendefinisikan struktur data kursus yang ditampilkan
+ */
 interface Course {
-  id: string;
-  title: string;
-  description: string;
-  progress: number;
-  totalLessons: number;
-  completedLessons: number;
-  duration: string;
-  level: string;
-  status: string;
-  type: string;
-  image: string;
-  createdAt?: string;
-  nextLessonId?: string;
+  id: string;                    // ID unik kursus
+  title: string;                 // Judul kursus
+  description: string;           // Deskripsi kursus
+  progress: number;              // Progress pembelajaran (0-100)
+  totalLessons: number;          // Total jumlah lesson
+  completedLessons: number;      // Jumlah lesson yang sudah selesai
+  duration: string;              // Durasi kursus
+  level: string;                 // Level kesulitan
+  status: string;                // Status kursus (Not Started, In Progress, Completed)
+  type: string;                  // Tipe kursus (generated, manual)
+  image: string;                 // URL gambar kursus
+  createdAt?: string;            // Tanggal pembuatan
+  nextLessonId?: string;         // ID lesson berikutnya
 }
 
+/**
+ * Course Page Component
+ * Component utama untuk menampilkan daftar kursus user
+ * 
+ * @returns JSX element untuk halaman kursus
+ */
 export default function CoursePage() {
+  // State untuk menyimpan daftar kursus
   const [courses, setCourses] = useState<Course[]>([])
+  
+  // State untuk pencarian dan filter
   const [searchQuery, setSearchQuery] = useState("")
   const [filterLevel, setFilterLevel] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
+  
+  // Router untuk navigasi
   const router = useRouter();
+  
+  // Supabase client untuk operasi database
   const supabase = createClientComponentClient();
 
-  // Load courses from Supabase
+  /**
+   * Load courses dari Supabase database
+   * Mengambil semua kursus milik user yang sedang login
+   */
   useEffect(() => {
     const fetchCourses = async () => {
-      // Get current user session
+      // Mengambil session user saat ini
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !session.user?.id) {
         setCourses([]);
         return;
       }
+      
       const userId = session.user.id;
+      
+      // Query untuk mengambil kursus dari database
       const { data: coursesData, error } = await supabase
         .from("courses")
         .select("*")
@@ -54,11 +82,11 @@ export default function CoursePage() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching courses:", error);
         setCourses([]);
         return;
       }
 
+      // Format data kursus untuk ditampilkan
       const formattedCourses = (coursesData || []).map((course: any) => ({
         id: course.id,
         title: course.title,
@@ -73,31 +101,48 @@ export default function CoursePage() {
         image: course.image || "/placeholder.svg?height=200&width=300",
         createdAt: course.created_at
       }));
+      
       setCourses(formattedCourses);
     };
+    
     fetchCourses();
   }, []);
 
-  // Handle course deletion
+  /**
+   * Handler untuk menghapus kursus
+   * Menghapus kursus dari database dan update state lokal
+   * 
+   * @param courseId - ID kursus yang akan dihapus
+   * @param courseType - Tipe kursus (untuk konfirmasi)
+   */
   const handleDeleteCourse = async (courseId: string, courseType: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus kursus ini? Tindakan ini tidak dapat dibatalkan.")) {
-      // Delete from Supabase
+      // Hapus dari database Supabase
       const { error } = await supabase.from("courses").delete().eq("id", courseId);
       if (error) {
         alert("Gagal menghapus kursus: " + error.message);
         return;
       }
-      // Update local state
+      
+      // Update state lokal
       setCourses(prevCourses => prevCourses.filter(course => course.id !== courseId));
     }
   }
 
-  // Handle course editing
+  /**
+   * Handler untuk mengedit kursus
+   * Navigasi ke halaman edit kursus
+   * 
+   * @param courseId - ID kursus yang akan diedit
+   */
   const handleEditCourse = (courseId: string) => {
     router.push(`/dashboard/course/${courseId}/edit`)
   }
 
-  // Filter courses based on search and filters
+  /**
+   * Filter kursus berdasarkan pencarian dan filter yang dipilih
+   * Menggabungkan filter pencarian, level, dan status
+   */
   const filteredCourses = courses.filter((course) => {
     const matchesSearch =
       course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -108,6 +153,12 @@ export default function CoursePage() {
     return matchesSearch && matchesLevel && matchesStatus
   })
 
+  /**
+   * Mendapatkan warna badge berdasarkan status kursus
+   * 
+   * @param status - Status kursus
+   * @returns Class CSS untuk warna badge
+   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case "In Progress":
@@ -121,6 +172,12 @@ export default function CoursePage() {
     }
   }
 
+  /**
+   * Mendapatkan warna badge berdasarkan level kursus
+   * 
+   * @param level - Level kesulitan kursus
+   * @returns Class CSS untuk warna badge
+   */
   const getLevelColor = (level: string) => {
     switch (level) {
       case "Pemula":
@@ -136,7 +193,7 @@ export default function CoursePage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* Header section dengan title dan tombol buat kursus */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Kursus Saya</h1>
@@ -150,7 +207,7 @@ export default function CoursePage() {
         </Button>
       </div>
 
-      {/* AI Generated Courses Warning */}
+      {/* Warning untuk kursus yang dibuat dengan AI */}
       {courses.some((course: any) => course.type === "generated") && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
@@ -170,10 +227,11 @@ export default function CoursePage() {
         </div>
       )}
 
-      {/* Search and Filters */}
+      {/* Search dan filter section */}
       <Card className="border border-border bg-card shadow-sm">
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-4">
+            {/* Search input */}
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -183,6 +241,8 @@ export default function CoursePage() {
                 className="pl-10 bg-background border-border focus:border-primary focus-visible:ring-ring"
               />
             </div>
+            
+            {/* Filter dropdown */}
             <div className="flex gap-2">
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[140px] border-border focus:border-primary">
@@ -200,89 +260,103 @@ export default function CoursePage() {
         </CardContent>
       </Card>
 
-      {/* Course Grid */}
+      {/* Grid kursus */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCourses.map((course, index) => {
           const realId = (course as any).courseId || course.id;
+          
+          // Hitung persentase progress
           const percent = course.totalLessons > 0 ? Math.round((course.completedLessons / course.totalLessons) * 100) : 0;
           const displayPercent = Math.min(percent, 100);
+          
           return (
             <Card key={`${realId}-${course.type}-${index}`} className="border border-border bg-card shadow-sm hover:shadow-md transition-shadow group">
-            <div className="relative">
-              <img
-                src={course.image || "/placeholder.svg"}
-                alt={course.title}
-                className="w-full h-48 object-cover rounded-t-lg"
-              />
-              {course.type === "generated" && (
-                <div className="absolute top-3 left-3">
-                  <Badge className="bg-primary text-primary-foreground">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Dibuat oleh AI
-                  </Badge>
-                </div>
-              )}
-              <div className="absolute top-3 right-3 flex gap-2">
-                <Badge className={getStatusColor(course.status)}>
-                  {course.status === "Completed" ? "Selesai" : course.status === "In Progress" ? "Sedang Berjalan" : course.status === "Not Started" ? "Belum Dimulai" : course.status}
-                </Badge>
+              {/* Image section dengan badge dan action buttons */}
+              <div className="relative">
+                <img
+                  src={course.image || "/placeholder.svg"}
+                  alt={course.title}
+                  className="w-full h-48 object-cover rounded-t-lg"
+                />
+                
+                {/* Badge untuk kursus yang dibuat AI */}
                 {course.type === "generated" && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-6 w-6 p-0 bg-background/80 hover:bg-background"
-                      onClick={() => handleEditCourse(realId)}
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-6 w-6 p-0 bg-destructive/80 hover:bg-destructive"
-                      onClick={() => handleDeleteCourse(realId, course.type)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </>
+                  <div className="absolute top-3 left-3">
+                    <Badge className="bg-primary text-primary-foreground">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Dibuat oleh AI
+                    </Badge>
+                  </div>
                 )}
-              </div>
-            </div>
-
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                {course.level && (
-                  <Badge variant="outline" className={`border-border ${getLevelColor(course.level)}`}>{course.level}</Badge>
-                )}
-                <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                  <Clock className="h-4 w-4" />
-                  <span>{course.duration}</span>
+                
+                {/* Action buttons di pojok kanan atas */}
+                <div className="absolute top-3 right-3 flex gap-2">
+                  <Badge className={getStatusColor(course.status)}>
+                    {course.status === "Completed" ? "Selesai" : course.status === "In Progress" ? "Sedang Berjalan" : course.status === "Not Started" ? "Belum Dimulai" : course.status}
+                  </Badge>
+                  
+                  {/* Edit dan delete buttons untuk kursus AI */}
+                  {course.type === "generated" && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 w-6 p-0 bg-background/80 hover:bg-background"
+                        onClick={() => handleEditCourse(realId)}
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="h-6 w-6 p-0 bg-destructive/80 hover:bg-destructive"
+                        onClick={() => handleDeleteCourse(realId, course.type)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
-              <CardTitle className="text-lg text-foreground group-hover:text-primary transition-colors">{course.title}</CardTitle>
-              <p className="text-muted-foreground text-sm line-clamp-2">{course.description}</p>
-            </CardHeader>
 
-            <CardContent className="space-y-4">
-              {displayPercent > 0 && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm text-foreground">
-                    <span>Progress</span>
-                    <span>{displayPercent}%</span>
-                  </div>
-                  <Progress value={displayPercent} className="h-2" />
-                  <div className="text-xs text-muted-foreground">
-                    {course.completedLessons} of {course.totalLessons} lessons completed
+              {/* Card header dengan informasi kursus */}
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  {course.level && (
+                    <Badge variant="outline" className={`border-border ${getLevelColor(course.level)}`}>{course.level}</Badge>
+                  )}
+                  <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                    <Clock className="h-4 w-4" />
+                    <span>{course.duration}</span>
                   </div>
                 </div>
-              )}
+                <CardTitle className="text-lg text-foreground group-hover:text-primary transition-colors">{course.title}</CardTitle>
+                <p className="text-muted-foreground text-sm line-clamp-2">{course.description}</p>
+              </CardHeader>
 
-                {/* Action Button */}
+              {/* Card content dengan progress dan action button */}
+              <CardContent className="space-y-4">
+                {/* Progress bar */}
+                {displayPercent > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm text-foreground">
+                      <span>Progress</span>
+                      <span>{displayPercent}%</span>
+                    </div>
+                    <Progress value={displayPercent} className="h-2" />
+                    <div className="text-xs text-muted-foreground">
+                      {course.completedLessons} of {course.totalLessons} lessons completed
+                    </div>
+                  </div>
+                )}
+
+                {/* Action button berdasarkan status progress */}
                 {course.progress === 0 ? (
+                  // Button untuk memulai kursus baru
                   <Button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
                     onClick={async () => {
-                      // Fetch UUID lesson pertama dari Supabase
+                      // Ambil lesson pertama dari database
                       const { data: firstLesson, error } = await supabase
                         .from("course_chapters")
                         .select("id")
@@ -301,10 +375,11 @@ export default function CoursePage() {
                     Mulai Kursus
                   </Button>
                 ) : course.progress < 100 ? (
+                  // Button untuk melanjutkan kursus
                   <Button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
                     onClick={async () => {
-                      // Fetch UUID lesson pertama dari Supabase
+                      // Ambil lesson pertama dari database
                       const { data: firstLesson, error } = await supabase
                         .from("course_chapters")
                         .select("id")
@@ -323,10 +398,11 @@ export default function CoursePage() {
                     Lanjutkan
                   </Button>
                 ) : (
+                  // Button untuk meninjau kursus yang sudah selesai
                   <Button
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20"
                     onClick={async () => {
-                      // Fetch UUID lesson pertama dari Supabase
+                      // Ambil lesson pertama dari database
                       const { data: firstLesson, error } = await supabase
                         .from("course_chapters")
                         .select("id")
@@ -345,12 +421,13 @@ export default function CoursePage() {
                     Tinjau
                   </Button>
                 )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           )
         })}
       </div>
 
+      {/* Empty state ketika tidak ada kursus */}
       {filteredCourses.length === 0 && (
         <div className="text-center py-12 border border-border rounded-lg bg-card p-8">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

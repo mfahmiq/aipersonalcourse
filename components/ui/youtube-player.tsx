@@ -36,25 +36,20 @@ export function YouTubePlayer({ videoUrl: initialVideoUrl, lessonTitle, lessonCo
           setVideoUrl(videos[0].embedUrl)
           // Update video_url in Supabase if courseId and chapterId are provided
           if (courseId && chapterId) {
-            console.log("[YouTubePlayer] Attempting to update video_url", { courseId, chapterId, videoUrl: videos[0].embedUrl });
             const { error } = await supabase
               .from("course_chapters")
               .update({ video_url: videos[0].embedUrl })
               .eq("course_id", courseId)
               .eq("id", chapterId)
             if (error) {
-              console.error("[YouTubePlayer] Supabase update error:", error)
             } else {
-              console.log("[YouTubePlayer] Supabase update success for video_url")
             }
           } else {
-            console.warn("[YouTubePlayer] courseId or chapterId missing", { courseId, chapterId })
           }
         } else {
           setError("Tidak ada video yang ditemukan untuk topik ini")
         }
       } catch (err) {
-        console.error("Error fetching video:", err)
         setError("Gagal memuat video")
       } finally {
         setLoading(false)

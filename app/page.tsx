@@ -1,3 +1,9 @@
+/**
+ * Home Page Component
+ * Halaman utama aplikasi AI Personal Course
+ * Menampilkan landing page dengan animasi dan call-to-action
+ */
+
 "use client"
 
 import Link from "next/link"
@@ -9,19 +15,35 @@ import { motion } from "framer-motion"
 import SparklesCanvas from "../components/SparklesCanvas"
 import FloatingIconsBackground from "../components/FloatingIconsBackground"
 
+/**
+ * Home Page Component
+ * Component ini menampilkan landing page dengan:
+ * - Header dengan navigasi login/register
+ * - Hero section dengan animasi
+ * - Background effects (sparkles, floating icons, grid pattern)
+ * - Call-to-action buttons
+ * 
+ * @returns JSX element untuk halaman utama
+ */
 export default function Home() {
+  // State untuk mengontrol animasi fade-in
   const [isVisible, setIsVisible] = useState(false)
 
+  // Trigger animasi fade-in saat component mount
   useEffect(() => {
     setIsVisible(true)
   }, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-background relative overflow-hidden z-20">
-      {/* Sparkles Background Animation */}
+      {/* Background Effects */}
+      {/* Sparkles animation untuk efek visual */}
       <SparklesCanvas />
+      
+      {/* Floating icons background */}
       <FloatingIconsBackground />
-      {/* Grid Pattern Overlay */}
+      
+      {/* Grid pattern overlay untuk texture */}
       <div className="pointer-events-none fixed inset-0 z-0 opacity-20 dark:opacity-10" aria-hidden="true">
         <svg className="w-full h-full" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -32,14 +54,19 @@ export default function Home() {
           <rect width="100%" height="100%" fill="url(#grid)" className="text-foreground/10" />
         </svg>
       </div>
+      
+      {/* Header dengan navigasi */}
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          {/* Logo dan brand name */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
               <div className="w-4 h-4 bg-background rounded-full"></div>
             </div>
             <span className="font-bold text-xl text-foreground">AI Personal Course</span>
           </div>
+          
+          {/* Navigation buttons */}
           <div className="flex gap-3">
             <Link href="/login">
               <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
@@ -53,28 +80,35 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Main content */}
       <main className="flex-1">
         {/* Hero Section */}
         <section className="py-20 px-4 bg-gradient-to-b from-muted/50 to-background">
           <div className="container mx-auto max-w-4xl text-center">
+            {/* Animated content container */}
             <div
               className={`transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
             >
+              {/* Badge untuk highlight fitur */}
               <Badge variant="secondary" className="mb-8 bg-muted text-muted-foreground border-0">
                 <Sparkles className="h-4 w-4 mr-2" />
                 Pembelajaran Berbasis AI
               </Badge>
 
+              {/* Main headline */}
               <h1 className="text-5xl md:text-6xl font-bold mb-6 text-foreground leading-tight">
                 <span className="text-primary relative">Belajar Tanpa Batas, Kapan Saja dan di Mana Saja
+                  {/* Animated underline effect */}
                   <div className="absolute -bottom-2 left-0 right-0 h-1 bg-primary/20 rounded-full animate-pulse"></div>
                 </span>
               </h1>
 
+              {/* Subtitle */}
               <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
                 Buat outline kursus, konten, dan dapatkan bantuan AI untuk menguasai topik apapun secara efisien.
               </p>
 
+              {/* Call-to-action buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Link href="/register">
                   <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 text-lg group">

@@ -1,3 +1,9 @@
+/**
+ * Lesson Page Component
+ * Halaman utama untuk menampilkan dan mengelola pembelajaran satu lesson dalam kursus
+ * Menyediakan fitur navigasi lesson, progress, AI assistant, dan tampilan konten
+ */
+
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
@@ -24,7 +30,11 @@ import { LESSON_ASSISTANT_PROMPT } from "@/lib/utils/prompts"
 import { generateLessonAssistant } from "@/lib/utils/gemini"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
-// Fungsi untuk membersihkan markdown
+/**
+ * Membersihkan markdown dari karakter yang tidak diinginkan
+ * @param md - String markdown
+ * @returns String markdown yang sudah dibersihkan
+ */
 function cleanMarkdown(md: string) {
   if (!md) return '';
   let cleaned = md.replace(/\\n/g, '\n').replace(/\n/g, '\n');
@@ -34,22 +44,22 @@ function cleanMarkdown(md: string) {
   return cleaned;
 }
 
-// Fungsi untuk mengekstrak referensi dari konten
+/**
+ * Mengekstrak referensi valid dari konten lesson
+ * @param content - Konten markdown lesson
+ * @returns Array referensi valid
+ */
 function extractReferences(content: string): Array<{number: string, title: string, author: string, url: string}> {
   const references: Array<{number: string, title: string, author: string, url: string}> = []
-  
   try {
     // Cari section referensi
     const referenceMatch = content.match(/(##?\s*Referensi?|##?\s*References?)([\s\S]*?)(?=##?\s*|$)/i)
-    
     if (referenceMatch) {
       const referenceSection = referenceMatch[2]
       const lines = referenceSection.split('\n')
-      
       for (const line of lines) {
         // Cari URL dalam baris
         const urlMatch = line.match(/\[(\d+)\]\s*(.*?)\s*-\s*(.*?)\s*-\s*(https?:\/\/[^\s]+)/)
-        
         if (urlMatch) {
           const [fullMatch, number, title, author, url] = urlMatch
           references.push({
@@ -62,28 +72,27 @@ function extractReferences(content: string): Array<{number: string, title: strin
       }
     }
   } catch (error) {
-    console.error("Error extracting references:", error)
+    // console.error("Error extracting references:", error)
   }
-  
   return references
 }
 
-// Fungsi untuk mengekstrak referensi yang tidak valid dari konten
+/**
+ * Mengekstrak referensi tidak valid dari konten lesson
+ * @param content - Konten markdown lesson
+ * @returns Array referensi tidak valid
+ */
 function extractInvalidReferences(content: string): Array<{number: string, title: string, author: string, url: string}> {
   const invalidReferences: Array<{number: string, title: string, author: string, url: string}> = []
-  
   try {
     // Cari section referensi
     const referenceMatch = content.match(/(##?\s*Referensi?|##?\s*References?)([\s\S]*?)(?=##?\s*|$)/i)
-    
     if (referenceMatch) {
       const referenceSection = referenceMatch[2]
       const lines = referenceSection.split('\n')
-      
       for (const line of lines) {
         // Cari URL dalam baris
         const urlMatch = line.match(/\[(\d+)\]\s*(.*?)\s*-\s*(.*?)\s*-\s*(https?:\/\/[^\s]+)/)
-        
         if (urlMatch) {
           const [fullMatch, number, title, author, url] = urlMatch
           if (!url.startsWith('http')) {
@@ -98,14 +107,16 @@ function extractInvalidReferences(content: string): Array<{number: string, title
       }
     }
   } catch (error) {
-    console.error("Error extracting invalid references:", error)
+    // console.error("Error extracting invalid references:", error)
   }
-  
   return invalidReferences
 }
 
+/**
+ * Komponen untuk merender code block dengan syntax highlighting
+ */
 interface CodeRendererProps {
-  node?: any; // You can refine this type based on remark-parse AST node type
+  node?: any; // AST node dari remark-parse
   inline?: boolean;
   className?: string;
   children?: React.ReactNode;
@@ -129,6 +140,10 @@ const CodeRenderer = ({ node, inline, className, children, ...props }: CodeRende
   );
 };
 
+/**
+ * LessonPage Component
+ * Komponen utama untuk menampilkan satu lesson, navigasi, progress, dan AI assistant
+ */
 export default function LessonPage() {
   const { id, lessonId } = useParams()
   const router = useRouter()
@@ -166,12 +181,12 @@ export default function LessonPage() {
         // Fetch course
         const { data: courseData, error: courseError } = await supabase.from("courses").select("*").eq("id", courseId).single();
         if (courseError) {
-          console.error("Error fetching course:", courseError, "courseId:", courseId);
+          // console.error("Error fetching course:", courseError, "courseId:", courseId);
           router.push("/dashboard/course");
           return;
         }
         if (!courseData) {
-          console.error("No course data found for courseId:", courseId);
+          // console.error("No course data found for courseId:", courseId);
           router.push("/dashboard/course");
           return;
         }
@@ -197,7 +212,7 @@ export default function LessonPage() {
           .order("module_number", { ascending: true })
           .order("number", { ascending: true });
         if (chaptersError) {
-          console.error("Error fetching course chapters:", chaptersError);
+          // console.error("Error fetching course chapters:", chaptersError);
           setAllLessons([]);
           return;
         }
@@ -241,7 +256,7 @@ export default function LessonPage() {
         // Calculate progress from courseData.progress
         setProgress(courseData.progress ?? 0);
       } catch (error) {
-        console.error("Error fetching course or lessons:", error);
+        // console.error("Error fetching course or lessons:", error);
         router.push("/dashboard/course");
       }
     };
@@ -251,13 +266,13 @@ export default function LessonPage() {
   // Debug: log course, currentLesson, allLessons
   useEffect(() => {
     if (course) {
-      console.log('COURSE DATA:', course);
+      // console.log('COURSE DATA:', course);
     }
     if (currentLesson) {
-      console.log('CURRENT LESSON:', currentLesson);
+      // console.log('CURRENT LESSON:', currentLesson);
     }
     if (allLessons) {
-      console.log('ALL LESSONS:', allLessons);
+      // console.log('ALL LESSONS:', allLessons);
     }
   }, [course, currentLesson, allLessons]);
 
@@ -293,9 +308,9 @@ export default function LessonPage() {
         .from("courses")
         .update({ progress: newProgress, completed_lessons: updatedCompleted, updated_at: new Date().toISOString() })
         .eq("id", courseId);
-      console.log("Course progress and completed lessons updated in Supabase");
+      // console.log("Course progress and completed lessons updated in Supabase");
     } catch (err: any) {
-      console.error("Error updating course progress in Supabase:", err);
+      // console.error("Error updating course progress in Supabase:", err);
     }
   };
 
@@ -390,13 +405,13 @@ export default function LessonPage() {
                 moduleIndex: mIdx,
                 courseId: course.courseId,
               });
-              console.log('lesson', lesson);
+              // console.log('lesson', lesson);
             });
           }
         });
       }
       setAllLessons(allLessonsArray);
-      console.log('allLessonsArray', allLessonsArray);
+      // console.log('allLessonsArray', allLessonsArray);
     }
   }, [course]);
 

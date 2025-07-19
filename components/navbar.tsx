@@ -47,7 +47,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
       // Force a hard reload to clear any cached state
       window.location.replace("/")
     } catch (error) {
-      console.error("Error signing out:", error)
+      // Hapus semua baris console.error
     }
   }
 

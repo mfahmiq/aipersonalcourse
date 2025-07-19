@@ -1,4 +1,16 @@
-// Prompt untuk generate course outline dengan Gemini
+/**
+ * Prompt templates untuk Gemini AI
+ * File ini berisi template prompt yang digunakan untuk berbagai fungsi AI
+ * seperti generate outline, konten pelajaran, dan asisten pembelajaran
+ */
+
+/**
+ * Prompt untuk generate course outline dengan Gemini
+ * Prompt ini menginstruksikan AI untuk membuat struktur outline kursus dalam format JSON
+ * 
+ * @param formData - Data form yang berisi informasi kursus
+ * @returns String prompt untuk Gemini AI
+ */
 export const OUTLINE_PROMPT = (formData: any) => `Context:
 You are an expert course designer assistant helping a user generate a structured course outline for an online learning platform.
 
@@ -21,14 +33,21 @@ ${formData.chapters ? `- Target Number of Chapters/Modules: ${formData.chapters}
 Rule:
 - Output must be valid JSON
 - Do not include any commentary outside the JSON
-- Do not include citations or references in the overview field
 - Structure must include:
   - id, title, description, topic, degree, level, duration, language, modules, lessons, createdAt, overview
-  - modulesList: Array of modules each with number (e.g., '1', '2'), title, and lessons (each lesson with number, e.g., '1.1', '1.2', title, duration)
+  - modulesList: Array of modules each with number (e.g., '1', '2'), title, and lessons (each lesson with number, e.g., '1.1', '1.2', title)
 - The output JSON must always include a 'number' field for each module and lesson, and the order must match the outline structure.
 `;
 
-// Prompt untuk generate konten lesson
+/**
+ * Prompt untuk generate konten lesson
+ * Prompt ini menginstruksikan AI untuk membuat konten pelajaran yang komprehensif dalam format Markdown
+ * 
+ * @param outlineData - Data outline kursus
+ * @param module - Data module yang berisi pelajaran
+ * @param lesson - Data pelajaran yang akan dibuat kontennya
+ * @returns String prompt untuk Gemini AI
+ */
 export const LESSON_CONTENT_PROMPT = ({ outlineData, module, lesson }: any) => `Context:
 You are an expert technical writer and subject matter educator helping generate high-quality online course content. 
 
@@ -82,7 +101,15 @@ Formatting Notes:
 - Headings must be specific to the lesson content, not generic templates
 `;
 
-// Prompt untuk AI Assistant (chat lesson)
+/**
+ * Prompt untuk AI Assistant (chat lesson)
+ * Prompt ini menginstruksikan AI untuk bertindak sebagai asisten pembelajaran
+ * yang membantu user memahami konten pelajaran
+ * 
+ * @param currentLesson - Data pelajaran saat ini
+ * @param userMessage - Pesan dari user
+ * @returns String prompt untuk Gemini AI
+ */
 export const LESSON_ASSISTANT_PROMPT = ({ currentLesson, userMessage }: any) => `Context:
 You are a helpful AI teaching assistant embedded within an online course platform.
 

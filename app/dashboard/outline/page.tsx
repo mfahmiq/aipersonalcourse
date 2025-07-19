@@ -1,3 +1,9 @@
+/**
+ * Outline Page Component
+ * Halaman utama untuk menampilkan, membuat, dan mengelola outline kursus
+ * Menyediakan fitur generate outline dengan AI, list outline, dan hapus outline
+ */
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -17,10 +23,19 @@ import { generateOutline } from "@/lib/utils/gemini"
 import { Portal } from "@/components/Portal"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+/**
+ * OutlinePage Component
+ * Komponen utama untuk menampilkan daftar outline kursus dan membuat outline baru
+ * 
+ * @returns JSX element untuk halaman outline
+ */
 export default function OutlinePage() {
   const router = useRouter()
+  // State untuk daftar outline
   const [outlines, setOutlines] = useState<any[]>([])
+  // State untuk modal generate outline
   const [isGenerating, setIsGenerating] = useState(false)
+  // State untuk form input generate outline
   const [formData, setFormData] = useState({
     title: "",
     topic: "",
@@ -36,6 +51,9 @@ export default function OutlinePage() {
   const [error, setError] = useState("")
   const supabase = createClientComponentClient();
 
+  /**
+   * Membersihkan outline yang corrupt (validasi struktur data)
+   */
   const cleanCorruptOutlines = (outlines: any[]) => {
     return outlines.filter((outline) => {
       if (!Array.isArray(outline.modulesList)) return false;
@@ -49,6 +67,9 @@ export default function OutlinePage() {
     });
   };
 
+  /**
+   * Fetch daftar outline dari Supabase saat komponen mount
+   */
   useEffect(() => {
     setIsMounted(true)
     // Fetch outlines from Supabase
@@ -62,11 +83,18 @@ export default function OutlinePage() {
 
   if (!isMounted) return null
 
+  /**
+   * Handler perubahan input form generate outline
+   */
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Replace the existing generateOutlineContent function
+  /**
+   * Fungsi untuk generate outline baru menggunakan AI Gemini
+   * @param formData - Data input form
+   * @returns Outline hasil generate
+   */
   const generateOutlineContent = async (formData: any) => {
     try {
       const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
@@ -84,7 +112,9 @@ export default function OutlinePage() {
     }
   }
 
-
+  /**
+   * Handler untuk generate outline baru dan simpan ke database
+   */
   const handleGenerateOutline = async () => {
     if (!formData.title || !formData.topic) {
       alert("Silakan isi minimal judul dan topik")
@@ -110,6 +140,7 @@ export default function OutlinePage() {
           ? newOutline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.lessons) ? m.lessons.length : 0), 0)
           : 0;
         const { error: dbError } = await supabase.from("outlines").insert({
+          id: newOutline.id, // <-- pastikan ID UUID dikirim ke database
           user_id: userId,
           title: newOutline.title,
           description: newOutline.description,
@@ -124,7 +155,6 @@ export default function OutlinePage() {
           modules_detail: newOutline.modulesList
         });
         if (dbError) {
-          console.error("Supabase insert error:", dbError);
           setError("Gagal menyimpan outline: " + dbError.message);
           setIsGenerating(false);
           return;
@@ -132,7 +162,6 @@ export default function OutlinePage() {
         // Refresh outlines list
         const { data, error } = await supabase.from("outlines").select("*").order("id", { ascending: false })
         if (error) {
-          console.error("Supabase fetch error:", error);
           setError(error.message);
         } else {
           setOutlines(data || [])
@@ -156,6 +185,10 @@ export default function OutlinePage() {
     }
   }
 
+  /**
+   * Handler untuk menghapus outline dari database
+   * @param id - ID outline yang akan dihapus
+   */
   const handleDeleteOutline = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus outline ini?")) {
       const { error } = await supabase.from("outlines").delete().eq("id", id);
@@ -173,6 +206,9 @@ export default function OutlinePage() {
     }
   }
 
+  /**
+   * Mendapatkan warna badge status outline
+   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Published":
@@ -184,6 +220,9 @@ export default function OutlinePage() {
     }
   }
 
+  /**
+   * Mendapatkan warna badge level outline
+   */
   const getLevelColor = (level: string) => {
     switch (level) {
       case "Pemula":
@@ -200,6 +239,9 @@ export default function OutlinePage() {
     }
   }
 
+  /**
+   * Handler untuk navigasi ke halaman edit outline
+   */
   const handleEditClick = (id: string) => {
     router.push(`/dashboard/outline/${id}/edit`)
   }

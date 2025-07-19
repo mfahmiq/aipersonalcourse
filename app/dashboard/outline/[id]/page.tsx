@@ -1,3 +1,9 @@
+/**
+ * View Outline Page Component
+ * Halaman untuk melihat detail outline kursus, generate konten, dan membuat course dari outline
+ * Menyediakan fitur tab, generate konten AI, ekspor, dan share outline
+ */
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -23,12 +29,19 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { OUTLINE_PROMPT } from "@/lib/utils/prompts";
 import { LESSON_CONTENT_PROMPT } from "@/lib/utils/prompts";
 
-// Tambahkan fungsi delay
+/**
+ * Fungsi delay async
+ * @param ms - waktu delay dalam milidetik
+ */
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Fungsi parsing code block dari markdown, <pre>, atau plain text
+/**
+ * Fungsi parsing code block dari markdown, <pre>, atau plain text
+ * @param content - Konten markdown
+ * @returns Array string code block
+ */
 function extractCodeBlocks(content: string): string[] {
   const codeBlocks: string[] = []
   // Markdown triple backtick
@@ -45,7 +58,9 @@ function extractCodeBlocks(content: string): string[] {
   return codeBlocks
 }
 
-// Fungsi generate konten per lesson
+/**
+ * Wrapper untuk generate konten lesson dengan validasi referensi
+ */
 async function generateLessonContentWrapper({ outlineData, module, lesson }: any) {
   const rawContent = await generateLessonContent({ outlineData, module, lesson }, process.env.NEXT_PUBLIC_GEMINI_API_KEY!, validateAndFixReferences)
   // Hapus prefix ```markdown jika ada
@@ -56,27 +71,26 @@ async function generateLessonContentWrapper({ outlineData, module, lesson }: any
   return { ...rawContent, content: cleanedContent };
 }
 
-// Fungsi untuk validasi dan perbaikan referensi
+/**
+ * Fungsi validasi dan perbaikan referensi pada konten lesson
+ * @param content - Konten markdown lesson
+ * @returns Konten dengan referensi yang sudah divalidasi
+ */
 async function validateAndFixReferences(content: string): Promise<string> {
   try {
     // Cari section referensi
     const referenceMatch = content.match(/(##?\s*Referensi?|##?\s*References?)([\s\S]*?)(?=##?\s*|$)/i)
-    
     if (referenceMatch) {
       const referenceSection = referenceMatch[2]
       const lines = referenceSection.split('\n')
       const validatedLines = []
-      
       for (const line of lines) {
         // Cari URL dalam baris
         const urlMatch = line.match(/\[(\d+)\]\s*(.*?)\s*-\s*(.*?)\s*-\s*(https?:\/\/[^\s]+)/)
-        
         if (urlMatch) {
           const [fullMatch, number, title, author, url] = urlMatch
-          
           // Validasi format URL sederhana
           const isValidUrl = validateUrlFormat(url)
-          
           if (isValidUrl) {
             validatedLines.push(line)
           } else {
@@ -86,7 +100,6 @@ async function validateAndFixReferences(content: string): Promise<string> {
               validatedLines.push(line.replace(url, correctedUrl))
             } else {
               // Hapus referensi yang tidak valid
-              console.warn(`Removing invalid reference: ${title} - ${url}`)
             }
           }
         } else {
@@ -94,20 +107,21 @@ async function validateAndFixReferences(content: string): Promise<string> {
           validatedLines.push(line)
         }
       }
-      
       // Ganti section referensi dengan yang sudah divalidasi
       const validatedReferenceSection = validatedLines.join('\n')
       content = content.replace(referenceMatch[0], `## Referensi${validatedReferenceSection}`)
     }
-    
     return content
   } catch (error) {
-    console.error("Error validating references:", error)
     return content
   }
 }
 
-// Fungsi untuk validasi format URL (tanpa HTTP request)
+/**
+ * Validasi format URL (tanpa HTTP request)
+ * @param url - URL string
+ * @returns true jika format valid
+ */
 function validateUrlFormat(url: string): boolean {
   try {
     const urlObj = new URL(url)
@@ -117,14 +131,17 @@ function validateUrlFormat(url: string): boolean {
   }
 }
 
-// Fungsi untuk memperbaiki format URL
+/**
+ * Perbaiki format URL jika tidak valid
+ * @param url - URL string
+ * @returns URL yang sudah diperbaiki atau null jika gagal
+ */
 function fixUrlFormat(url: string): string | null {
   try {
     // Jika URL tidak memiliki protocol, tambahkan https://
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return `https://${url}`
     }
-    
     // Validasi URL yang sudah diperbaiki
     const urlObj = new URL(url)
     return urlObj.toString()
@@ -133,29 +150,13 @@ function fixUrlFormat(url: string): string | null {
   }
 }
 
-// Helper untuk konversi durasi ke jam
-function convertDurationToHours(duration: string): string {
-  if (!duration) return "-";
-  const lower = duration.toLowerCase();
-  if (lower.includes("minggu")) {
-    const match = lower.match(/(\d+)/);
-    const weeks = match ? parseInt(match[1], 10) : 1;
-    return `${weeks * 7 * 24}h`;
-  }
-  if (lower.includes("hari")) {
-    const match = lower.match(/(\d+)/);
-    const days = match ? parseInt(match[1], 10) : 1;
-    return `${days * 24}h`;
-  }
-  if (lower.includes("jam") || lower.includes("hour")) {
-    const match = lower.match(/(\d+)/);
-    const hours = match ? parseInt(match[1], 10) : 1;
-    return `${hours}h`;
-  }
-  return duration;
-}
-
-// Fungsi untuk generate konten lesson menggunakan Gemini
+/**
+ * Generate konten lesson menggunakan Gemini
+ * @param outlineData - Data outline
+ * @param module - Data modul
+ * @param lesson - Data lesson
+ * @returns Konten lesson hasil AI
+ */
 async function generateLessonContentGemini({ outlineData, module, lesson }: any) {
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) throw new Error("Gemini API key tidak ditemukan di environment variable");
@@ -183,9 +184,14 @@ async function generateLessonContentGemini({ outlineData, module, lesson }: any)
   };
 }
 
+/**
+ * ViewOutlinePage Component
+ * Komponen utama untuk melihat detail outline, generate course, dan tab navigasi
+ */
 export default function ViewOutlinePage() {
   const { id } = useParams()
   const router = useRouter()
+  const outlineId = Array.isArray(id) ? id[0] : id
   const [outline, setOutline] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [isRegenerating, setIsRegenerating] = useState(false)
@@ -198,7 +204,7 @@ export default function ViewOutlinePage() {
 
   useEffect(() => {
     const fetchOutline = async () => {
-      const { data, error } = await supabase.from("outlines").select("*").eq("id", id).single();
+      const { data, error } = await supabase.from("outlines").select("*").eq("id", outlineId).single();
       if (error || !data) {
         router.push("/dashboard/outline");
     } else {
@@ -209,11 +215,11 @@ export default function ViewOutlinePage() {
         });
       }
     };
-    if (id) fetchOutline();
-  }, [id, router]);
+    if (outlineId) fetchOutline();
+  }, [outlineId, router]);
 
   const handleEditClick = () => {
-    router.push(`/dashboard/outline/${id}/edit`)
+    router.push(`/dashboard/outline/${outlineId}/edit`)
   }
 
   const handleCreateCourse = async () => {
@@ -238,17 +244,32 @@ export default function ViewOutlinePage() {
         return;
       }
       // Insert course ke tabel 'courses'
-      // Pastikan outline.id adalah UUID valid
-      let outlineIdToUse = outline.id;
-      if (!uuidValidate(outlineIdToUse)) {
-        outlineIdToUse = uuidv4();
+      // Pastikan outline.id adalah UUID valid dan ada di database
+      if (!uuidValidate(outline.id)) {
+        setIsGenerating(false);
+        alert("Invalid outline ID. Please try again.");
+        return;
       }
+      
+      // Verifikasi bahwa outline benar-benar ada di database
+      const { data: outlineCheck, error: outlineCheckError } = await supabase
+        .from("outlines")
+        .select("id")
+        .eq("id", outline.id)
+        .single();
+        
+      if (outlineCheckError || !outlineCheck) {
+        setIsGenerating(false);
+        alert("Outline not found in database. Please try again.");
+        return;
+      }
+      
       const { data: courseInsert, error: courseError } = await supabase
         .from("courses")
         .insert([
           {
             user_id: userId,
-            outline_id: outlineIdToUse,
+            outline_id: outline.id,
             title: outline.title,
             description: outline.description,
             level: outline.level,
@@ -256,8 +277,6 @@ export default function ViewOutlinePage() {
             modules: totalModules,
             lessons: totalLessons,
             progress: 0,
-            status: "active",
-            type: "generated",
             overview: outline.overview,
             topic: outline.topic,
             settings: {},
@@ -330,7 +349,6 @@ export default function ViewOutlinePage() {
           });
           if (lessonInsertError) {
             // Tangani error insert lesson (opsional: tampilkan notifikasi atau retry)
-            console.error(`Gagal insert lesson '${lessonContent.title}':`, lessonInsertError.message);
           }
           // Jeda 3 detik
           await delay(3000)
@@ -374,7 +392,7 @@ export default function ViewOutlinePage() {
       language: outline?.language || "",
       chapters: outline?.modules_detail?.length || outline?.chapters || "",
       topic: outline?.description || "",
-      goals: outline?.learning_goal || "",
+    
       // tambahkan field lain jika ada
     });
     setShowRegenerateForm(true);
@@ -505,15 +523,11 @@ export default function ViewOutlinePage() {
         // Remove any leading/trailing whitespace
         .trim()
 
-      console.log("Cleaned JSON string:", jsonString)
-
       // Try to parse the cleaned JSON
       let generatedCourse
       try {
         generatedCourse = JSON.parse(jsonString)
       } catch (parseError) {
-        console.error("JSON Parse Error:", parseError)
-        console.error("Problematic JSON string:", jsonString)
         
         // Try to fix common JSON issues
         jsonString = jsonString
@@ -528,7 +542,6 @@ export default function ViewOutlinePage() {
           // Remove any double spaces
           .replace(/\s+/g, ' ')
         
-        console.log("Attempting to parse fixed JSON:", jsonString)
         generatedCourse = JSON.parse(jsonString)
       }
 
@@ -554,7 +567,6 @@ export default function ViewOutlinePage() {
 
       return generatedCourse;
     } catch (error) {
-      console.error("Error generating course content:", error);
       throw error;
     }
   };

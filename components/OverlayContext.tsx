@@ -1,7 +1,20 @@
+/**
+ * Overlay Context
+ * Context React untuk menampilkan overlay progress saat proses generate konten kursus
+ * Digunakan untuk menampilkan loading/progress bar di seluruh aplikasi
+ */
+
 "use client"
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
+/**
+ * Tipe context untuk overlay progress
+ * - isGenerating: apakah proses generate sedang berjalan
+ * - setIsGenerating: setter untuk isGenerating
+ * - generationProgress: progress pembuatan konten (modul, lesson, dsb)
+ * - setGenerationProgress: setter untuk generationProgress
+ */
 interface OverlayContextType {
   isGenerating: boolean;
   setIsGenerating: (val: boolean) => void;
@@ -9,14 +22,27 @@ interface OverlayContextType {
   setGenerationProgress: (val: { module: number; lesson: number; totalModules: number; totalLessons: number; currentLessonName: string }) => void;
 }
 
+// Membuat context React untuk overlay
 const OverlayContext = createContext<OverlayContextType | undefined>(undefined);
 
+/**
+ * Custom hook untuk menggunakan OverlayContext
+ * Harus dipakai di dalam OverlayProvider
+ */
 export const useOverlay = () => {
   const ctx = useContext(OverlayContext);
   if (!ctx) throw new Error("useOverlay must be used within OverlayProvider");
   return ctx;
 };
 
+/**
+ * OverlayProvider
+ * Provider context untuk overlay progress generate konten kursus
+ * Menyediakan state dan setter untuk isGenerating dan generationProgress
+ * Menampilkan overlay loading saat isGenerating true
+ *
+ * @param children - Komponen anak yang dibungkus provider
+ */
 export const OverlayProvider = ({ children }: { children: ReactNode }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState({ module: 0, lesson: 0, totalModules: 0, totalLessons: 0, currentLessonName: "" });

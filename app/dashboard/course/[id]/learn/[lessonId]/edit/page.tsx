@@ -1,3 +1,9 @@
+/**
+ * Edit Lesson Page Component
+ * Halaman untuk mengedit materi/lesson dalam sebuah kursus
+ * Memungkinkan user mengubah judul, konten markdown, dan video YouTube lesson
+ */
+
 "use client"
 
 import { useEffect, useState } from "react"
@@ -7,18 +13,29 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
+/**
+ * EditLessonPage Component
+ * Komponen utama untuk mengedit lesson (materi) kursus
+ * 
+ * @returns JSX element untuk halaman edit lesson
+ */
 export default function EditLessonPage() {
+  // Ambil parameter dari URL
   const { id, lessonId } = useParams();
   const router = useRouter();
   const courseId = Array.isArray(id) ? id[0] : id;
   const lessonUUID = Array.isArray(lessonId) ? lessonId[0] : lessonId; // gunakan UUID
   const supabase = createClientComponentClient();
 
+  // State untuk data lesson, loading, saving, dan error
   const [lesson, setLesson] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * Fetch lesson dari database berdasarkan UUID
+   */
   useEffect(() => {
     const fetchLesson = async () => {
       // Fetch lesson langsung berdasarkan UUID
@@ -38,7 +55,11 @@ export default function EditLessonPage() {
     if (courseId && lessonUUID) fetchLesson();
   }, [courseId, lessonUUID, supabase]);
 
-  // Fungsi konversi link YouTube ke format embed
+  /**
+   * Konversi berbagai format link YouTube ke format embed
+   * @param url - URL video YouTube
+   * @returns URL embed YouTube
+   */
   function convertToEmbedUrl(url: string): string {
     if (!url) return '';
     // youtu.be/xxxx
@@ -60,6 +81,10 @@ export default function EditLessonPage() {
     return url;
   }
 
+  /**
+   * Handler untuk menyimpan perubahan lesson ke database
+   * Melakukan update judul, konten, dan video_url (dalam format embed)
+   */
   const handleSave = async () => {
     if (!lesson) return;
     setSaving(true);
@@ -77,7 +102,9 @@ export default function EditLessonPage() {
     router.push(`/dashboard/course/${courseId}/learn/${lesson.id}`); // navigasi pakai UUID
   };
 
+  // State loading
   if (loading) return <div className="p-8">Loading...</div>;
+  // State error
   if (error) return <div className="p-8 text-red-600">{error === "Lesson not found" ? "Materi tidak ditemukan" : error}</div>;
 
   return (
