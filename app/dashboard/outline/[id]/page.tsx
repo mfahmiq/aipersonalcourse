@@ -419,6 +419,7 @@ export default function ViewOutlinePage() {
       setTimeout(() => {
         setRegenerateSuccess(false);
         setIsRegenerating(false);
+        router.push('/dashboard/outline');
       }, 2000);
     } catch (error) {
       alert("Failed to regenerate outline.");
