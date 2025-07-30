@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { OverlayProvider } from "@/components/OverlayContext"
 
-export default function DashboardLayout({
+export default function SettingsLayout({
   children,
 }: {
   children: React.ReactNode
@@ -38,4 +38,4 @@ export default function DashboardLayout({
       </div>
     </OverlayProvider>
   )
-}
+} 

@@ -3,16 +3,15 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { StagewiseToolbar } from "@stagewise/toolbar-next"
-import { ReactPlugin } from "@stagewise-plugins/react"
 import { OverlayProvider } from "@/components/OverlayContext"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "AI Personal Course",
-  description: "Personalized learning experiences powered by AI",
-    generator: 'v0.dev'
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
@@ -22,13 +21,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body className={inter.className}>
         <OverlayProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {children}
-            {process.env.NODE_ENV === "development" && (
-              <StagewiseToolbar config={{ plugins: [ReactPlugin] }} />
-            )}
           </ThemeProvider>
         </OverlayProvider>
       </body>

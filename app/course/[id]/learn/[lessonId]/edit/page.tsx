@@ -74,7 +74,7 @@ export default function EditLessonPage() {
       setError("Gagal menyimpan materi: " + error.message);
       return;
     }
-    router.push(`/dashboard/course/${courseId}/learn/${lesson.id}`); // navigasi pakai UUID
+    router.push(`/course/${courseId}/learn/${lesson.id}`); // navigasi pakai UUID
   };
 
   if (loading) return <div className="p-8">Loading...</div>;
@@ -112,7 +112,7 @@ export default function EditLessonPage() {
         <Button onClick={handleSave} disabled={saving} className="bg-primary text-white">
           {saving ? "Menyimpan..." : "Simpan"}
         </Button>
-        <Button variant="outline" onClick={() => router.push(`/dashboard/course/${courseId}/learn/${lesson.id}`)}>
+        <Button variant="outline" onClick={() => router.push(`/course/${courseId}/learn/${lesson.id}`)}>
           Batal
         </Button>
       </div>

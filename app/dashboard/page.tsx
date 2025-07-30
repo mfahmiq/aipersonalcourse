@@ -244,7 +244,7 @@ export default function Dashboard() {
                               alert("Tidak dapat menemukan lesson pertama untuk course ini.");
                               return;
                             }
-                            router.push(`/dashboard/course/${course.id}/learn/${firstLesson.id}`);
+                            router.push(`/course/${course.id}/learn/${firstLesson.id}`);
                         }}
                       >
                         {course.kemajuan === 100 ? "Tinjau" : "Lanjutkan"}

@@ -57,13 +57,13 @@ export default function EditCoursePage() {
       // Fetch course from Supabase
       const { data: courseData, error } = await supabase.from("kursus").select("*").eq("id", courseId).single();
       if (error || !courseData) {
-        router.push("/dashboard/course");
+        router.push("/course");
         return;
       }
       // Access control: Only owner can edit
       if (courseData.pengguna_id !== userId) {
         alert("You do not have access to edit this course.");
-        router.push("/dashboard/course");
+        router.push("/course");
         return;
       }
       setCourse(courseData as CourseData);
@@ -102,7 +102,7 @@ export default function EditCoursePage() {
       }
       
       alert("Kursus berhasil diperbarui!");
-      router.push("/dashboard/course")
+      router.push("/course")
     } catch (error) {
       console.error("Error saving course:", error)
       alert("Gagal menyimpan kursus. Silakan coba lagi.")
@@ -148,7 +148,7 @@ export default function EditCoursePage() {
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold mb-4">Kursus tidak ditemukan</h2>
         <Button asChild>
-          <Link href="/dashboard/course">Kembali ke Daftar Kursus</Link>
+          <Link href="/course">Kembali ke Daftar Kursus</Link>
         </Button>
       </div>
     )
@@ -160,7 +160,7 @@ export default function EditCoursePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-            <Link href="/dashboard/course" className="flex items-center gap-1 hover:text-foreground">
+            <Link href="/course" className="flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
               Kursus
             </Link>
@@ -251,7 +251,7 @@ export default function EditCoursePage() {
               )}
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/dashboard/course">Batal</Link>
+              <Link href="/course">Batal</Link>
             </Button>
           </div>
         </CardContent>

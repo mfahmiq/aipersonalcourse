@@ -197,7 +197,7 @@ export const LessonMainContent: React.FC<LessonMainContentProps> = ({
             )}
           </Button>
           {currentLesson?.id && typeof currentLesson.id === 'string' && currentLesson.id !== 'undefined.1' && currentLesson.id !== '' && (
-            <Link href={`/dashboard/course/${course?.courseId || course?.id}/learn/${currentLesson.id}/edit`}>
+            <Link href={`/course/${course?.courseId || course?.id}/learn/${currentLesson.id}/edit`}>
               <Button size="sm" variant="outline" aria-label="Edit Lesson">
                 Edit
               </Button>

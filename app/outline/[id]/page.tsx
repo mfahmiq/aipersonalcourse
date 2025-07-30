@@ -198,7 +198,7 @@ export default function ViewOutlinePage() {
     const fetchOutline = async () => {
       const { data, error } = await supabase.from("outlines").select("*").eq("id", id).single();
       if (error || !data) {
-        router.push("/dashboard/outline");
+        router.push("/outline");
     } else {
         console.log("Fetched outline data:", data);
         console.log("detail_modul:", data.detail_modul);
@@ -231,7 +231,7 @@ export default function ViewOutlinePage() {
   }, [id, router]);
 
   const handleEditClick = () => {
-    router.push(`/dashboard/outline/${id}/edit`)
+    router.push(`/outline/${id}/edit`)
   }
 
   const handleCreateCourse = async () => {
@@ -337,7 +337,7 @@ export default function ViewOutlinePage() {
         course.modules.push(newModule)
       }
       setIsGenerating(false);
-      router.push(`/dashboard/course`)
+              router.push(`/course`)
     } catch (e) {
       setIsGenerating(false)
       alert("Terjadi kesalahan saat generate course.")
@@ -433,7 +433,7 @@ export default function ViewOutlinePage() {
       setTimeout(() => {
         setRegenerateSuccess(false);
         setIsRegenerating(false);
-        router.push('/dashboard/outline'); // Tambahkan redirect ke halaman outline setelah regenerasi
+        router.push('/outline'); // Tambahkan redirect ke halaman outline setelah regenerasi
       }, 2000);
     } catch (error) {
       alert("Failed to regenerate outline.");
@@ -585,7 +585,7 @@ export default function ViewOutlinePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-            <Link href="/dashboard/outline" className="flex items-center gap-1 hover:text-foreground">
+            <Link href="/outline" className="flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
               Outline
             </Link>

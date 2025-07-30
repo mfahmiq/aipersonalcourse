@@ -35,9 +35,9 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   // Get the current page title based on the pathname
   const getPageTitle = () => {
     if (pathname === "/dashboard") return "Dasbor"
-    if (pathname === "/dashboard/outline") return "Outline Kursus"
-    if (pathname === "/dashboard/course") return "Kursus"
-    if (pathname === "/dashboard/settings") return "Pengaturan"
+    if (pathname === "/outline") return "Outline Kursus"
+    if (pathname === "/course") return "Kursus"
+    if (pathname === "/settings") return "Pengaturan"
     return "Dasbor"
   }
 
@@ -81,17 +81,17 @@ export function Navbar({ onMenuClick }: NavbarProps) {
               )}>
                 Dasbor
               </Link>
-              <Link href="/dashboard/outline" className={cn(
+              <Link href="/outline" className={cn(
                 "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                pathname.startsWith("/dashboard/outline")
+                pathname.startsWith("/outline")
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}>
                 Outline
               </Link>
-              <Link href="/dashboard/course" className={cn(
+              <Link href="/course" className={cn(
                 "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                pathname.startsWith("/dashboard/course")
+                pathname.startsWith("/course")
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}>
@@ -123,7 +123,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 <DropdownMenuSeparator />
                 
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings">Pengaturan</Link>
+                  <Link href="/settings">Pengaturan</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout}>Keluar</DropdownMenuItem>
@@ -170,10 +170,10 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             </li>
             <li>
               <Link
-                href="/dashboard/outline"
+                href="/outline"
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  pathname.startsWith("/dashboard/outline")
+                  pathname.startsWith("/outline")
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
@@ -185,10 +185,10 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             </li>
             <li>
               <Link
-                href="/dashboard/course"
+                href="/course"
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  pathname.startsWith("/dashboard/course")
+                  pathname.startsWith("/course")
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
@@ -200,10 +200,10 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             </li>
             <li>
               <Link
-                href="/dashboard/settings"
+                href="/settings"
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  pathname === "/dashboard/settings"
+                  pathname === "/settings"
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}

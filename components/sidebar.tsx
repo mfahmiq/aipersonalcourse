@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Outline", href: "/dashboard/outline", icon: FileText },
-  { name: "Course", href: "/dashboard/course", icon: BookOpen },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
+  { name: "Outline", href: "/outline", icon: FileText },
+  { name: "Course", href: "/course", icon: BookOpen },
+  { name: "Settings", href: "/settings", icon: Settings },
 ]
 
 export function Sidebar() {

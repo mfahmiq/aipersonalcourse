@@ -77,6 +77,7 @@
     "undici": "^7.11.0",
     "uuid": "^11.1.0",
     "vaul": "^0.9.6",
+    "youtubei.js": "^15.0.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -90,7 +91,7 @@
     "css-loader": "^7.1.2",
     "hast": "^0.0.2",
     "mdast": "^2.3.2",
-    "postcss": "^8.5.4",
+    "postcss": "^8.5.6",
     "postcss-loader": "^8.1.1",
     "style-loader": "^4.0.0",
     "tailwindcss": "^3.4.17",

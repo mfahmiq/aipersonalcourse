@@ -42,7 +42,7 @@ export default function EditOutlinePage() {
     const fetchOutline = async () => {
       const { data, error } = await supabase.from("outlines").select("*").eq("id", outlineId).single();
       if (error || !data) {
-        router.push("/dashboard/outline");
+        router.push("/outline");
       } else {
       setFormData({
           judul: data.judul || "",
@@ -176,7 +176,7 @@ export default function EditOutlinePage() {
     }
 
     alert('Outline berhasil diperbarui!');
-    router.push(`/dashboard/outline/${outlineId}`);
+    router.push(`/outline/${outlineId}`);
   };
 
   if (!isMounted) return null
@@ -187,7 +187,7 @@ export default function EditOutlinePage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-            <Link href={`/dashboard/outline/${outlineId}`} className="flex items-center gap-1 hover:text-foreground">
+            <Link href={`/outline/${outlineId}`} className="flex items-center gap-1 hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
               Kembali ke Outline
             </Link>

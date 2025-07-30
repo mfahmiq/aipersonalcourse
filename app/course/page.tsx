@@ -100,7 +100,7 @@ export default function KursusPage() {
   }
 
   const handleEditKursus = (kursusId: string) => {
-    router.push(`/dashboard/course/${kursusId}/edit`)
+            router.push(`/course/${kursusId}/edit`)
   }
 
   const kursusTersaring = kursus.filter((k) => {
@@ -152,7 +152,7 @@ export default function KursusPage() {
           <p className="text-muted-foreground mt-1">Lanjutkan perjalanan belajar Anda dan kelola semua kursus di sini</p>
         </div>
         <Button className="bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20" asChild>
-          <Link href="/dashboard/outline">
+          <Link href="/outline">
             <Plus className="h-4 w-4 mr-2" />
             Buat Kursus Baru
           </Link>
@@ -268,7 +268,7 @@ export default function KursusPage() {
                         alert("Tidak dapat menemukan materi pertama untuk kursus ini.");
                         return;
                       }
-                      router.push(`/dashboard/course/${realId}/learn/${firstMateri.id}`);
+                      router.push(`/course/${realId}/learn/${firstMateri.id}`);
                     }}
                   >
                     Mulai Kursus
@@ -289,7 +289,7 @@ export default function KursusPage() {
                         alert("Tidak dapat menemukan materi pertama untuk kursus ini.");
                         return;
                       }
-                      router.push(`/dashboard/course/${realId}/learn/${firstMateri.id}`);
+                      router.push(`/course/${realId}/learn/${firstMateri.id}`);
                     }}
                   >
                     Lanjutkan
@@ -310,7 +310,7 @@ export default function KursusPage() {
                         alert("Tidak dapat menemukan materi pertama untuk kursus ini.");
                         return;
                       }
-                      router.push(`/dashboard/course/${realId}/learn/${firstMateri.id}`);
+                      router.push(`/course/${realId}/learn/${firstMateri.id}`);
                     }}
                   >
                     Tinjau
@@ -332,7 +332,7 @@ export default function KursusPage() {
               : "Buat kursus pertama Anda dari outline"}
           </p>
           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground border border-primary/20" asChild>
-            <Link href="/dashboard/outline">
+            <Link href="/outline">
               <Plus className="h-4 w-4 mr-2" />
               Buat Kursus
             </Link>

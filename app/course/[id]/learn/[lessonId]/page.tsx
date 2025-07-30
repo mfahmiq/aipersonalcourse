@@ -167,18 +167,18 @@ export default function LessonPage() {
         const { data: courseData, error: courseError } = await supabase.from("kursus").select("*").eq("id", courseId).single();
         if (courseError) {
           console.error("Error fetching course:", courseError, "courseId:", courseId);
-          router.push("/dashboard/course");
+          router.push("/course");
           return;
         }
         if (!courseData) {
           console.error("No course data found for courseId:", courseId);
-          router.push("/dashboard/course");
+          router.push("/course");
           return;
         }
         // Access control: Only owner can access
         if (courseData.pengguna_id !== userId) {
           alert("Anda tidak memiliki akses ke kursus ini.");
-          router.push("/dashboard/course");
+          router.push("/course");
           return;
         }
         const validatedCourse = {
@@ -244,7 +244,7 @@ export default function LessonPage() {
           setCurrentModule(foundLesson);
         } else if (allLessons.length > 0) {
           // If lesson not found, redirect to first lesson
-          router.push(`/dashboard/course/${courseId}/learn/${allLessons[0].lessons[0].lessonOrder}`);
+          router.push(`/course/${courseId}/learn/${allLessons[0].lessons[0].lessonOrder}`);
         }
 
         // Set completed lessons from course.materi_selesai
@@ -254,7 +254,7 @@ export default function LessonPage() {
         setProgress(courseData.kemajuan ?? 0);
       } catch (error) {
         console.error("Error fetching course or lessons:", error);
-        router.push("/dashboard/course");
+        router.push("/course");
       }
     };
     fetchCourseAndLessons();
@@ -392,7 +392,7 @@ export default function LessonPage() {
     if (targetIdx < 0 || targetIdx >= flatLessons.length) return;
     const targetLesson = flatLessons[targetIdx];
     if (targetLesson && targetLesson.id) {
-      router.push(`/dashboard/course/${courseId}/learn/${targetLesson.id}`);
+              router.push(`/course/${courseId}/learn/${targetLesson.id}`);
     }
   };
 

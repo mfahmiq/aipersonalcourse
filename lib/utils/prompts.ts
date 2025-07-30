@@ -3,10 +3,10 @@ export const OUTLINE_PROMPT = (formData: any) => `Context:
 You are an expert course designer assistant helping a user generate a structured course outline for an online learning platform.
 
 Task:
-Generate a detailed course outline based on user input.
+Generate a detailed course outline based on user input. You can provide the output in either JSON format or a structured text format.
 
 Instruction:
-Use the provided data to build a JSON structure that represents the course, including title, description, modules, and materi.
+Use the provided data to build a course structure, including title, description, modules, and materi.
 
 Clarify & Refine:
 User has provided the following course requirements:
@@ -20,18 +20,76 @@ ${formData.jumlah_modul ? `- Target Number of Modules: ${formData.jumlah_modul}`
 
 IMPORTANT: Generate a course outline specifically for "${formData.judul}". All modules and materi must be directly related to this topic. Do not generate generic content - ensure everything is focused on ${formData.judul}.
 
-Rule:
-- Output must be valid JSON
-- Do not include any commentary outside the JSON
-- Do not include citations or references in the ringkasan field
-- Structure must include:
-  - id, title, description, topic, subject, difficulty, duration, language, number_of_modules, number_of_lessons, createdAt, summary
-  - modulesList: Array of modules each with number (e.g., '1', '2'), title, and lessons (each lesson with number, e.g., '1.1', '1.2', title, duration)
-  - The output JSON must always include a 'number' field for each module and materi, and the order must match the outline structure.
-  - Focus on the specific topic provided (${formData.judul}) and ensure all content is relevant to that topic
-  - Generate content that matches the difficulty level (${formData.tingkat}) and duration (${formData.durasi}) specified
-  - Use the language specified (${formData.bahasa}) for all content
-  - Create exactly ${formData.jumlah_modul} modules as requested
+Output Format Options:
+You can provide the output in either of these formats:
+
+OPTION 1 - JSON Format (Preferred):
+\`\`\`json
+{
+  "judul": "${formData.judul}",
+  "deskripsi": "Detailed description of the course",
+  "topik": "${formData.topik}",
+  "mata_pelajaran": "${formData.mata_pelajaran || ''}",
+  "tingkat": "${formData.tingkat || 'Menengah'}",
+  "durasi": "${formData.durasi || ''}",
+  "bahasa": "${formData.bahasa || 'Indonesia'}",
+  "jumlah_modul": ${formData.jumlah_modul || 3},
+  "jumlah_materi": 6,
+  "ringkasan": "Course summary",
+  "modulesList": [
+    {
+      "judul": "1. Pengenalan ${formData.judul}",
+      "materi": [
+        {
+          "judul": "1.1 Konsep Dasar",
+          "deskripsi": "Mempelajari konsep dasar dan fundamental dari ${formData.judul}"
+        },
+        {
+          "judul": "1.2 Sejarah dan Perkembangan",
+          "deskripsi": "Menjelajahi sejarah dan perkembangan ${formData.judul} dari masa ke masa"
+        }
+      ]
+    }
+  ]
+}
+\`\`\`
+
+OPTION 2 - Structured Text Format:
+If JSON format is not possible, provide a structured text outline with clear module and lesson numbering:
+
+1. Pengenalan ${formData.judul}
+   1.1 Konsep Dasar ${formData.judul}
+      Deskripsi: Mempelajari konsep dasar dan fundamental dari ${formData.judul}
+   1.2 Sejarah dan Perkembangan
+      Deskripsi: Menjelajahi sejarah dan perkembangan ${formData.judul} dari masa ke masa
+   1.3 Manfaat dan Aplikasi
+      Deskripsi: Memahami manfaat dan aplikasi praktis ${formData.judul}
+
+2. Dasar-dasar ${formData.judul}
+   2.1 Prinsip Utama
+      Deskripsi: Mempelajari prinsip-prinsip utama dalam ${formData.judul}
+   2.2 Metodologi dan Pendekatan
+      Deskripsi: Menjelajahi berbagai metodologi dan pendekatan dalam ${formData.judul}
+   2.3 Tools dan Teknologi
+      Deskripsi: Mengenal tools dan teknologi yang digunakan dalam ${formData.judul}
+
+3. Implementasi Praktis
+   3.1 Langkah-langkah Implementasi
+      Deskripsi: Langkah-langkah praktis untuk mengimplementasikan ${formData.judul}
+   3.2 Studi Kasus
+      Deskripsi: Analisis studi kasus nyata dalam ${formData.judul}
+   3.3 Best Practices
+      Deskripsi: Best practices dan tips untuk mengoptimalkan ${formData.judul}
+
+Rules:
+- Focus on the specific topic provided (${formData.judul})
+- Generate content that matches the difficulty level (${formData.tingkat}) and duration (${formData.durasi}) specified
+- Use the language specified (${formData.bahasa}) for all content
+- Create exactly ${formData.jumlah_modul} modules as requested
+- Each module should have 2-3 lessons
+- Make content practical and applicable
+- Use "deskripsi" instead of "durasi" for lesson descriptions
+- Do not include any "id" fields in the output
 `;
 
 // Prompt untuk generate konten lesson
@@ -58,7 +116,7 @@ Module Info:
 
 Lesson Info:
 - Title: ${lesson.judul}
-- Duration: ${lesson.durasi}
+- Description: ${lesson.deskripsi || "Materi pembelajaran yang komprehensif"}
 
 Rules:
 1. Always fact-check every statement. Avoid hallucinations.

@@ -70,8 +70,24 @@ export default function OutlinePage() {
   const generateOutlineContent = async (formData: any) => {
     try {
       const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
+      
+      console.log("Generated outline structure:", {
+        hasJudul: !!generatedOutline.judul,
+        hasDeskripsi: !!generatedOutline.deskripsi,
+        hasTopik: !!generatedOutline.topik,
+        hasTingkat: !!generatedOutline.tingkat,
+        hasDurasi: !!generatedOutline.durasi,
+        hasBahasa: !!generatedOutline.bahasa,
+        hasMataPelajaran: !!generatedOutline.mata_pelajaran,
+        hasRingkasan: !!generatedOutline.ringkasan,
+        hasModulesList: !!generatedOutline.modulesList,
+        modulesListType: typeof generatedOutline.modulesList,
+        modulesListLength: Array.isArray(generatedOutline.modulesList) ? generatedOutline.modulesList.length : 'not array',
+        modulesListSample: Array.isArray(generatedOutline.modulesList) ? generatedOutline.modulesList[0] : null,
+        fullOutline: generatedOutline
+      });
+      
       // Add missing fields that were previously generated client-side if needed
-      generatedOutline.id = uuidv4()
       if (!generatedOutline.createdAt) {
         generatedOutline.createdAt = new Date().toISOString();
       }
@@ -80,6 +96,7 @@ export default function OutlinePage() {
       }
       return generatedOutline
     } catch (err) {
+      console.error("Error in generateOutlineContent:", err);
       throw err
     }
   }
@@ -104,31 +121,46 @@ export default function OutlinePage() {
           setIsGenerating(false);
           return;
         }
+        
         // Insert into outlines table
         const modulesCount = Array.isArray(newOutline.modulesList) ? newOutline.modulesList.length : 0;
         const lessonsCount = Array.isArray(newOutline.modulesList)
           ? newOutline.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.materi) ? m.materi.length : 0), 0)
           : 0;
-        const { error: dbError } = await supabase.from("outlines").insert({
+        
+        // Prepare data for insert with proper validation
+        const insertData = {
           pengguna_id: userId,
-          judul: newOutline.judul,
-          deskripsi: newOutline.deskripsi,
-          topik: newOutline.topik,
-          tingkat: newOutline.tingkat,
-          durasi: newOutline.durasi,
-          bahasa: newOutline.bahasa,
-          mata_pelajaran: newOutline.mata_pelajaran,
+          judul: newOutline.judul || "",
+          deskripsi: newOutline.deskripsi || "",
+          topik: newOutline.topik || "",
+          tingkat: newOutline.tingkat || "",
+          durasi: newOutline.durasi || "",
+          bahasa: newOutline.bahasa || "",
+          mata_pelajaran: newOutline.mata_pelajaran || formData.mata_pelajaran || "",
           jumlah_modul: modulesCount,
           jumlah_materi: lessonsCount,
-          ringkasan: newOutline.ringkasan,
-          detail_modul: newOutline.modulesList
-        });
+          ringkasan: newOutline.ringkasan || "",
+          detail_modul: newOutline.modulesList || []
+        };
+        
+        console.log("Inserting data:", insertData);
+        
+        const { error: dbError } = await supabase.from("outlines").insert(insertData);
+        
         if (dbError) {
           console.error("Supabase insert error:", dbError);
+          console.error("Error details:", {
+            message: dbError.message,
+            details: dbError.details,
+            hint: dbError.hint,
+            code: dbError.code
+          });
           setError("Gagal menyimpan outline: " + dbError.message);
           setIsGenerating(false);
           return;
         }
+        
         // Refresh outlines list
         const { data, error } = await supabase.from("outlines").select("*").order("id", { ascending: false })
         if (error) {
@@ -137,20 +169,22 @@ export default function OutlinePage() {
         } else {
           setOutlines(data || [])
         }
+        
         // Reset form
         setFormData({
-                      judul: "",
-            topik: "",
-            mata_pelajaran: "",
-            tingkat: "",
-            durasi: "",
-            bahasa: "",
+          judul: "",
+          topik: "",
+          mata_pelajaran: "",
+          tingkat: "",
+          durasi: "",
+          bahasa: "",
           video: "",
-            jumlah_modul: "",
+          jumlah_modul: "",
         })
         setShowGenerateModal(false)
     } catch (error) {
-        // Error handling is done within generateOutlineContent
+        console.error("Error in handleGenerateOutline:", error);
+        setError("Terjadi kesalahan saat membuat outline: " + (error as Error).message);
     } finally {
         setIsGenerating(false)
     }
@@ -201,7 +235,7 @@ export default function OutlinePage() {
   }
 
   const handleEditClick = (id: string) => {
-    router.push(`/dashboard/outline/${id}/edit`)
+    router.push(`/outline/${id}/edit`)
   }
 
   if (isGenerating) {
@@ -344,7 +378,7 @@ export default function OutlinePage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg text-foreground group-hover:text-primary transition-colors">
-                      <Link href={`/dashboard/outline/${outline.id}`}>{outline.judul}</Link>
+                      <Link href={`/outline/${outline.id}`}>{outline.judul}</Link>
                     </CardTitle>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteOutline(outline.id)}>
@@ -372,7 +406,7 @@ export default function OutlinePage() {
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" className="w-full border border-border text-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/50" asChild>
-                      <Link href={`/dashboard/outline/${outline.id}`}>
+                      <Link href={`/outline/${outline.id}`}>
                         <Eye className="h-4 w-4 mr-2" />
                         Lihat
                       </Link>

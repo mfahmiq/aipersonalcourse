@@ -87,7 +87,7 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                     .map((lesson: any) => (
                       <li key={lesson.id}>
                         <Link
-                          href={`/dashboard/course/${lesson.courseId || modul.id}/learn/${lesson.id}`}
+                          href={`/course/${lesson.courseId || modul.id}/learn/${lesson.id}`}
                           className={cn(
                             "block p-3 rounded-md transition-colors",
                             currentLessonId === lesson.id ? "bg-primary/10 text-primary font-semibold" : "hover:bg-accent hover:text-foreground text-muted-foreground",
