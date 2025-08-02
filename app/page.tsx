@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowRight, BookOpen, Sparkles, MessageSquare } from "lucide-react"
+import { ArrowRight, BookOpen, Sparkles, MessageSquare, GraduationCap } from "lucide-react"
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import SparklesCanvas from "../components/SparklesCanvas"
@@ -34,12 +34,12 @@ export default function Home() {
       </div>
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-              <div className="w-4 h-4 bg-background rounded-full"></div>
+              <GraduationCap className="w-4 h-4 text-background" />
             </div>
             <span className="font-bold text-xl text-foreground">AI Personal Course</span>
-          </div>
+          </Link>
           <div className="flex gap-3">
             <Link href="/login">
               <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
