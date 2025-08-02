@@ -43,21 +43,23 @@ export default function Dashboard() {
    * Fetch data statistik, nama user, dan aktivitas terbaru saat mount
    */
   useEffect(() => {
-    setIsMounted(true)
+    let isMounted = true;
+    setIsMounted(true);
 
     /**
      * Fetch nama user dari tabel profil
      */
     const fetchUserName = async (userId: string) => {
+      if (!isMounted) return;
       // Fetch from profil table instead of profile
       const { data: settings, error } = await supabase
         .from("profil")
         .select("nama_lengkap")
         .eq("id", userId)
         .single();
-      if (settings && settings.nama_lengkap) {
+      if (isMounted && settings && settings.nama_lengkap) {
         setUserName(settings.nama_lengkap);
-      } else {
+      } else if (isMounted) {
         setUserName("");
       }
     };
@@ -66,12 +68,13 @@ export default function Dashboard() {
      * Fetch statistik kursus user
      */
     const fetchStats = async (userId: string) => {
+      if (!isMounted) return;
       const { data: courses, error: coursesError } = await supabase
         .from("kursus")
         .select("*")
         .eq("pengguna_id", userId);
 
-      if (coursesError) {
+      if (coursesError || !isMounted) {
         return;
       }
 
@@ -80,18 +83,21 @@ export default function Dashboard() {
       const inProgress = Array.isArray(courses) ? courses.filter((c: any) => (c.kemajuan ?? 0) > 0 && (c.kemajuan ?? 0) < 100).length : 0;
       const avgProgress = total > 0 ? Math.round((Array.isArray(courses) ? courses.reduce((sum: number, c: any) => sum + (c.kemajuan ?? 0), 0) : 0) / total) : 0;
 
-      setStats({
-        total,
-        inProgress,
-        completed,
-        avgProgress,
-      });
+      if (isMounted) {
+        setStats({
+          total,
+          inProgress,
+          completed,
+          avgProgress,
+        });
+      }
     };
 
     /**
      * Fetch aktivitas terbaru user dari tabel kursus
      */
     const fetchRecentActivity = async (userId: string) => {
+      if (!isMounted) return;
       const { data: courses, error } = await supabase
         .from("kursus")
         .select("*")
@@ -99,39 +105,49 @@ export default function Dashboard() {
         .gt("kemajuan", 0) // hanya kursus yang sudah dipelajari
         .order("updated_at", { ascending: false })
         .limit(5); // batasi 5 aktivitas terbaru
-      if (error) {
+      if (error || !isMounted) {
         setRecentActivity([]);
         return;
       }
-      setRecentActivity((courses || []).map((course: any) => ({
-        ...course,
-        title: course.judul,
-        image: course.gambar || "/placeholder.svg",
-      })));
+      if (isMounted) {
+        setRecentActivity((courses || []).map((course: any) => ({
+          ...course,
+          title: course.judul,
+          image: course.gambar || "/placeholder.svg",
+        })));
+      }
     };
 
     /**
      * Fetch semua data user (nama, stats, aktivitas)
      */
     const fetchAll = async () => {
+      if (!isMounted) return;
       const { data } = await supabase.auth.getSession();
       const session = data.session;
       if (!session || !session.user?.id) {
-        setNotLoggedIn(true);
-        setLoading(false);
-        // Optional: Uncomment to redirect
-        // router.push("/login");
+        if (isMounted) {
+          setNotLoggedIn(true);
+          setLoading(false);
+        }
         return;
       }
       const userId = session.user.id;
       await fetchUserName(userId);
       await fetchStats(userId);
       await fetchRecentActivity(userId);
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     };
 
     fetchAll();
-  }, [])
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase.auth]) // Add proper dependency
 
   if (loading) {
     return <div className="flex justify-center items-center h-64">Loading...</div>;

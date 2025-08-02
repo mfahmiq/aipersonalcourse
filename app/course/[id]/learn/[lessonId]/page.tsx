@@ -153,13 +153,15 @@ export default function LessonPage() {
 
   // Load course data and current lesson
   useEffect(() => {
+    let isMounted = true;
+    
     // Fetch course data from Supabase
     const fetchCourseAndLessons = async () => {
       try {
         // Get current user session
         const { data: { session } } = await supabase.auth.getSession();
         if (!session || !session.user?.id) {
-          router.push("/login");
+          if (isMounted) router.push("/login");
           return;
         }
         const userId = session.user.id;
@@ -167,18 +169,18 @@ export default function LessonPage() {
         const { data: courseData, error: courseError } = await supabase.from("kursus").select("*").eq("id", courseId).single();
         if (courseError) {
           console.error("Error fetching course:", courseError, "courseId:", courseId);
-          router.push("/course");
+          if (isMounted) router.push("/course");
           return;
         }
         if (!courseData) {
           console.error("No course data found for courseId:", courseId);
-          router.push("/course");
+          if (isMounted) router.push("/course");
           return;
         }
         // Access control: Only owner can access
         if (courseData.pengguna_id !== userId) {
           alert("Anda tidak memiliki akses ke kursus ini.");
-          router.push("/course");
+          if (isMounted) router.push("/course");
           return;
         }
         const validatedCourse = {
@@ -187,7 +189,7 @@ export default function LessonPage() {
           title: courseData.judul || "Kursus Tanpa Judul",
           description: courseData.deskripsi || "Tidak ada deskripsi",
         };
-        setCourse(validatedCourse);
+        if (isMounted) setCourse(validatedCourse);
 
         // Fetch lessons from materi
         const { data: chapters, error: chaptersError } = await supabase
@@ -198,7 +200,7 @@ export default function LessonPage() {
           .order("nomor_materi", { ascending: true });
         if (chaptersError) {
           console.error("Error fetching course chapters:", chaptersError);
-          setAllLessons([]);
+          if (isMounted) setAllLessons([]);
           return;
         }
 
@@ -235,30 +237,39 @@ export default function LessonPage() {
             }),
           }))
           .sort((a, b) => (a.nomor_modul || 0) - (b.nomor_modul || 0));
-        setAllLessons(modules);
+        
+        if (isMounted) setAllLessons(modules);
 
         // Set current lesson by lessonOrder (for navigation), but use UUID for id
-        const foundLesson = allLessons.find((mod) => mod.lessons.find((l: any) => String(l.lessonOrder) === String(currentLessonId) || String(l.id) === String(currentLessonId)));
+        const foundLesson = modules.find((mod) => mod.lessons.find((l: any) => String(l.lessonOrder) === String(currentLessonId) || String(l.id) === String(currentLessonId)));
         if (foundLesson) {
-          setCurrentLesson(foundLesson.lessons.find((l: any) => String(l.lessonOrder) === String(currentLessonId) || String(l.id) === String(currentLessonId)));
-          setCurrentModule(foundLesson);
-        } else if (allLessons.length > 0) {
+          const currentLesson = foundLesson.lessons.find((l: any) => String(l.lessonOrder) === String(currentLessonId) || String(l.id) === String(currentLessonId));
+          if (isMounted) {
+            setCurrentLesson(currentLesson);
+            setCurrentModule(foundLesson);
+          }
+        } else if (modules.length > 0) {
           // If lesson not found, redirect to first lesson
-          router.push(`/course/${courseId}/learn/${allLessons[0].lessons[0].lessonOrder}`);
+          if (isMounted) router.push(`/course/${courseId}/learn/${modules[0].lessons[0].lessonOrder}`);
         }
 
-        // Set completed lessons from course.materi_selesai
-        setCompletedLessons(courseData.materi_selesai || []);
+        // Set completed lessons from courseData.materi_selesai
+        if (isMounted) setCompletedLessons(courseData.materi_selesai || []);
 
         // Calculate progress from courseData.kemajuan
-        setProgress(courseData.kemajuan ?? 0);
+        if (isMounted) setProgress(courseData.kemajuan ?? 0);
       } catch (error) {
         console.error("Error fetching course or lessons:", error);
-        router.push("/course");
+        if (isMounted) router.push("/course");
       }
     };
+    
     fetchCourseAndLessons();
-  }, [courseId, currentLessonId, router]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [courseId, currentLessonId, router, supabase.auth]);
 
   // Debug: log course, currentLesson, allLessons
   useEffect(() => {
@@ -433,16 +444,18 @@ export default function LessonPage() {
   }, [completedLessons, allLessons])
 
   useEffect(() => {
+    let isMounted = true;
+    
     // Fetch chat history dari Supabase saat lesson dibuka
     const fetchChatHistory = async () => {
-      if (currentLesson && currentLesson.courseId) {
+      if (currentLesson && currentLesson.courseId && isMounted) {
         const { data: chapters, error: chaptersError } = await supabase
           .from("materi")
           .select("id,chatbot_qa")
           .eq("kursus_id", currentLesson.courseId)
           .eq("judul", currentLesson.judul)
           .limit(1);
-        if (!chaptersError && chapters && chapters.length > 0) {
+        if (!chaptersError && chapters && chapters.length > 0 && isMounted) {
           const chapter = chapters[0];
           if (Array.isArray(chapter.chatbot_qa)) {
             setChatHistory(
@@ -456,7 +469,11 @@ export default function LessonPage() {
       }
     };
     fetchChatHistory();
-  }, [currentLesson]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [currentLesson, supabase]);
 
   if (!course) {
     return null;
