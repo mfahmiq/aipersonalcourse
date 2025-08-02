@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { ChevronLeft, ChevronRight, FileText, MessageCircle, CheckCircle, Send, Menu, X, Eye, Clock } from "lucide-react"
+import { ChevronLeft, ChevronRight, FileText, MessageCircle, CheckCircle, Send, Menu, X, Eye, Clock, ArrowLeft, Home } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
@@ -485,6 +485,24 @@ export default function LessonPage() {
       />
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto bg-background">
+        {/* Breadcrumbs */}
+        <div className="sticky top-0 z-10 bg-background border-b border-border px-6 py-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Link href="/dashboard" className="flex items-center gap-1 hover:text-foreground transition-colors">
+              <Home className="h-4 w-4" />
+              Dashboard
+            </Link>
+            <span className="text-muted-foreground">/</span>
+            <Link href="/course" className="hover:text-foreground transition-colors">
+              Kursus
+            </Link>
+            <span className="text-muted-foreground">/</span>
+            <span className="text-foreground font-medium">
+              {currentLesson?.title || currentLesson?.judul || "Materi"}
+            </span>
+          </div>
+        </div>
+        
         <LessonMainContent
           currentLesson={currentLesson}
           course={course}

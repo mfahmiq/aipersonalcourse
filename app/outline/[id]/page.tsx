@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, BookOpen, Clock, Share2, Download, Edit, Play, Target, CheckCircle2, FileText, GraduationCap, Layers, Globe, ListOrdered, X } from "lucide-react"
+import { ArrowLeft, BookOpen, Clock, Share2, Download, Edit, Play, Target, CheckCircle2, FileText, GraduationCap, Layers, Globe, ListOrdered, X, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { v4 as uuidv4, validate as uuidValidate } from "uuid"
@@ -842,8 +842,23 @@ export default function ViewOutlinePage() {
                     </div>
                     {/* Removed Learning Goals section */}
                     <div className="flex gap-2 mt-6 justify-end">
-                      <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors">Regenerasi</button>
-                      <button type="button" className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors" onClick={() => setShowRegenerateForm(false)}>Batal</button>
+                      <Button 
+                        type="submit" 
+                        className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                        size="sm"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Regenerasi
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="outline"
+                        className="border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700" 
+                        size="sm"
+                        onClick={() => setShowRegenerateForm(false)}
+                      >
+                        Batal
+                      </Button>
                     </div>
                   </div>
                 </div>

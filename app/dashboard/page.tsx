@@ -156,15 +156,15 @@ export default function Dashboard() {
     : [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 px-4 sm:px-6 lg:px-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Selamat Datang Kembali{userName ? `, ${userName}` : ""}</h1>
+      <div className="pt-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Selamat Datang Kembali{userName ? `, ${userName}` : ""}</h1>
         <p className="text-muted-foreground mt-1">Lanjutkan perjalanan belajar Anda</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {statsData.map((stat, index) => (
           <Card key={index} className="border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -183,11 +183,11 @@ export default function Dashboard() {
 
       {/* Recent Activity */}
       <div>
-        <div className="flex items-center gap-2 mb-6 text-foreground">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6 text-foreground">
           <Clock className="h-5 w-5 text-muted-foreground" />
           <h2 className="text-xl font-semibold">Aktivitas Terbaru</h2>
         </div>
-        <p className="text-muted-foreground mb-6">Progres dan aktivitas belajar terbaru Anda</p>
+        <p className="text-muted-foreground mb-4 sm:mb-6">Progres dan aktivitas belajar terbaru Anda</p>
 
         <div className="space-y-4">
           {filteredRecentActivity.length === 0 ? (
@@ -195,10 +195,10 @@ export default function Dashboard() {
           ) : (
             filteredRecentActivity.map((course, index) => (
               <Card key={course.id || index} className="border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-14 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1">
+                      <div className="w-16 h-12 sm:w-20 sm:h-14 bg-muted rounded-lg border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                         <img
                           src={course.image || "/placeholder.svg"}
                           alt={course.title}
@@ -206,10 +206,10 @@ export default function Dashboard() {
                           loading="lazy"
                         />
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">{course.title}</h3>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="text-sm text-muted-foreground">Last updated: {course.updated_at ? new Date(course.updated_at).toLocaleString() : '-'}</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{course.title}</h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
+                          <span className="text-xs sm:text-sm text-muted-foreground">Last updated: {course.updated_at ? new Date(course.updated_at).toLocaleString() : '-'}</span>
                           <div className="flex items-center gap-2">
                             {(() => {
                               const totalLessons = course.jumlah_materi ?? 0;
@@ -217,19 +217,19 @@ export default function Dashboard() {
                               const percent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
                               const displayPercent = Math.min(percent, 100);
                               return <>
-                                <Progress value={displayPercent} className="w-32 h-2" />
-                                <span className="text-sm font-medium text-foreground">{displayPercent}%</span>
+                                <Progress value={displayPercent} className="w-20 sm:w-32 h-2" />
+                                <span className="text-xs sm:text-sm font-medium text-foreground">{displayPercent}%</span>
                               </>;
                             })()}
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex justify-end sm:flex-shrink-0">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-border hover:border-primary/50"
+                        className="w-full sm:w-auto min-h-[44px] border-border hover:border-primary/50 text-sm"
                         onClick={async () => {
                           // Ambil lesson pertama dari kursus berdasarkan urutan modul dan materi
                             const { data: firstLesson, error } = await supabase

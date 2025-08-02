@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Bell, Search, Menu, LayoutDashboard, FileText, BookOpen, Settings, LogOut } from "lucide-react"
+import { Bell, Search, Menu, LayoutDashboard, FileText, BookOpen, Settings, LogOut, GraduationCap } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,12 +65,12 @@ export function Navbar({ onMenuClick }: NavbarProps) {
 
         <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
+          <Link href="/dashboard" className="hidden md:flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <div className="w-4 h-4 bg-background rounded-full"></div>
+                <GraduationCap className="w-4 h-4 text-background" />
               </div>
-              <span className="font-bold text-lg text-foreground hidden md:inline">AI Personal Course</span>
-            </div>
+              <span className="font-bold text-lg text-foreground">AI Personal Course</span>
+            </Link>
             {/* Main Navigation - Desktop */}
             <nav className="hidden md:flex items-center gap-2 ml-6">
               <Link href="/dashboard" className={cn(
@@ -146,7 +146,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
       >
         <div className="flex items-center gap-2 p-6 border-b border-border">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <div className="w-4 h-4 bg-background rounded-full"></div>
+            <GraduationCap className="w-4 h-4 text-background" />
           </div>
           <span className="font-bold text-lg text-foreground">AI Personal Course</span>
         </div>

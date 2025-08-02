@@ -4,6 +4,8 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { OverlayProvider } from "@/components/OverlayContext"
+import { StagewiseToolbar } from "@stagewise/toolbar-next"
+import { ReactPlugin } from "@stagewise-plugins/react"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -28,6 +30,11 @@ export default function RootLayout({
         <OverlayProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {children}
+            <StagewiseToolbar 
+              config={{
+                plugins: [ReactPlugin]
+              }}
+            />
           </ThemeProvider>
         </OverlayProvider>
       </body>
