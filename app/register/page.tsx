@@ -98,10 +98,7 @@ export default function RegisterPage() {
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">Registrasi Berhasil!</h2>
           <p className="text-muted-foreground mb-4">
-            Silakan cek email Anda untuk link konfirmasi dan selesaikan pendaftaran.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Mengarahkan ke halaman verifikasi...
+            Silakan masuk ke aplikasi menggunakan akun yang telah didaftarkan.
           </p>
         </div>
       </div>

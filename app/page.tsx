@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowRight, BookOpen, Sparkles, MessageSquare, GraduationCap } from "lucide-react"
+import { ArrowRight, BookOpen, Sparkles, MessageSquare, GraduationCap, Play, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import SparklesCanvas from "../components/SparklesCanvas"
@@ -11,6 +11,7 @@ import FloatingIconsBackground from "../components/FloatingIconsBackground"
 
 export default function Home() {
   const [isVisible, setIsVisible] = useState(false)
+  const [showDemo, setShowDemo] = useState(false)
 
   useEffect(() => {
     setIsVisible(true)
@@ -82,15 +83,70 @@ export default function Home() {
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
-                <Button variant="outline" size="lg" className="px-8 py-3 text-lg border-border hover:border-border/80">
-                  Lihat Demo
-                </Button>
+                <motion.div
+                  animate={{
+                    scale: [1, 1.05, 1],
+                    boxShadow: [
+                      "0 0 0 0 rgba(59, 130, 246, 0)",
+                      "0 0 0 10px rgba(59, 130, 246, 0.1)",
+                      "0 0 0 0 rgba(59, 130, 246, 0)"
+                    ]
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                >
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="px-8 py-3 text-lg border-border hover:border-border/80 relative group"
+                    onClick={() => setShowDemo(true)}
+                  >
+                    <Play className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
+                    Lihat Demo
+                  </Button>
+                </motion.div>
               </div>
             </div>
           </div>
         </section>
       </main>
 
+      {/* Demo Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-background rounded-lg shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h2 className="text-xl font-semibold text-foreground">Demo AI Personal Course</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDemo(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="relative aspect-video">
+              <iframe
+                src="https://www.youtube.com/embed/2escUlpDoP4?autoplay=1"
+                title="AI Personal Course Demo"
+                className="w-full h-full"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
