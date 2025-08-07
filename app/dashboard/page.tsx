@@ -263,7 +263,13 @@ export default function Dashboard() {
                             router.push(`/course/${course.id}/learn/${firstLesson.id}`);
                         }}
                       >
-                        {course.kemajuan === 100 ? "Tinjau" : "Lanjutkan"}
+                        {(() => {
+                          const totalLessons = course.jumlah_materi ?? 0;
+                          const completedLessons = Array.isArray(course.materi_selesai) ? course.materi_selesai.length : 0;
+                          const percent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+                          const displayPercent = Math.min(percent, 100);
+                          return displayPercent === 100 ? "Tinjau" : "Lanjutkan";
+                        })()}
                       </Button>
                     </div>
                   </div>
