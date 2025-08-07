@@ -81,7 +81,7 @@ export default function Dashboard() {
       const total = Array.isArray(courses) ? courses.length : 0;
       const completed = Array.isArray(courses) ? courses.filter((c: any) => (c.kemajuan ?? 0) >= 100).length : 0;
       const inProgress = Array.isArray(courses) ? courses.filter((c: any) => (c.kemajuan ?? 0) > 0 && (c.kemajuan ?? 0) < 100).length : 0;
-      const avgProgress = total > 0 ? Math.round((Array.isArray(courses) ? courses.reduce((sum: number, c: any) => sum + (c.kemajuan ?? 0), 0) : 0) / total) : 0;
+      const avgProgress = total > 0 ? Math.round((Array.isArray(courses) ? courses.reduce((sum: number, c: any) => sum + Math.min(c.kemajuan ?? 0, 100), 0) : 0) / total) : 0;
 
       if (isMounted) {
         setStats({
@@ -163,7 +163,7 @@ export default function Dashboard() {
     { title: "Total Kursus", value: stats.total, subtitle: "Kursus yang diikuti", icon: BookOpen, color: "bg-blue-100 text-blue-600" },
     { title: "Sedang Berjalan", value: stats.inProgress, subtitle: "Belajar aktif", icon: Clock, color: "bg-purple-100 text-purple-600" },
     { title: "Selesai", value: stats.completed, subtitle: "Kursus selesai", icon: CheckCircle, color: "bg-green-100 text-green-600" },
-    { title: "Rata-rata Progres", value: `${stats.avgProgress}%`, subtitle: "Dari semua kursus", icon: TrendingUp, color: "bg-pink-100 text-pink-600" },
+    { title: "Rata-rata Progres", value: `${Math.min(stats.avgProgress, 100)}%`, subtitle: "Dari semua kursus", icon: TrendingUp, color: "bg-pink-100 text-pink-600" },
   ]
 
   // Filter aktivitas terbaru hanya untuk kursus yang sudah ada progres
