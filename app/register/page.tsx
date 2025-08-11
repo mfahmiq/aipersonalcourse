@@ -115,7 +115,7 @@ export default function RegisterPage() {
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-4">Bergabung dengan AI Personal Course</h1>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Buat akun Anda dan mulai membangun pengalaman belajar personalisasi dengan platform berbasis AI kami.
+            Buat akun Anda dan mulai membangun pengalaman belajar secara mandiri dengan platform berbasis AI kami.
           </p>
         </div>
       </div>
