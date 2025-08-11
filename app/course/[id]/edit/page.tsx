@@ -220,8 +220,8 @@ export default function EditCoursePage() {
               <Input
                 id="level"
                 value={formData.level}
-                readOnly
-                className="bg-white cursor-not-allowed"
+                onChange={(e) => setFormData(prev => ({ ...prev, level: e.target.value }))}
+                placeholder="cth: Pemula, Menengah, Lanjutan"
               />
             </div>
 
