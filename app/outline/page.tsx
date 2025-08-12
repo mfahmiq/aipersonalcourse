@@ -349,11 +349,6 @@ export default function OutlinePage() {
                           <SelectItem value="3">3 Modul</SelectItem>
                           <SelectItem value="4">4 Modul</SelectItem>
                           <SelectItem value="5">5 Modul</SelectItem>
-                          <SelectItem value="6">6 Modul</SelectItem>
-                          <SelectItem value="7">7 Modul</SelectItem>
-                          <SelectItem value="8">8 Modul</SelectItem>
-                          <SelectItem value="9">9 Modul</SelectItem>
-                          <SelectItem value="10">10 Modul</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
