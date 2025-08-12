@@ -403,7 +403,46 @@ export default function ViewOutlinePage() {
     setIsRegenerating(true);
     try {
       const newOutlineData = await generateOutlineContent(formData);
-      // Update the outline in Supabase
+
+      // Jika continuation mode: buat OUTLINE BARU (insert), bukan update
+      if (formData.isContinuation) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        if (!userId) {
+          setIsRegenerating(false);
+          alert("User not authenticated.");
+          return;
+        }
+        const modulesCount = Array.isArray(newOutlineData.modulesList) ? newOutlineData.modulesList.length : 0;
+        const lessonsCount = Array.isArray(newOutlineData.modulesList)
+          ? newOutlineData.modulesList.reduce((acc: number, m: any) => acc + (Array.isArray(m.materi) ? m.materi.length : 0), 0)
+          : 0;
+        const insertPayload = {
+          pengguna_id: userId,
+          judul: newOutlineData.judul,
+          deskripsi: newOutlineData.deskripsi,
+          topik: newOutlineData.topik,
+          tingkat: newOutlineData.tingkat,
+          durasi: newOutlineData.durasi,
+          bahasa: newOutlineData.bahasa,
+          jumlah_modul: modulesCount,
+          jumlah_materi: lessonsCount,
+          ringkasan: newOutlineData.ringkasan,
+          prasyarat: newOutlineData.prasyarat || "",
+          detail_modul: newOutlineData.modulesList,
+        } as any;
+        const { error: insertError } = await supabase.from("outlines").insert(insertPayload);
+        if (insertError) {
+          alert('Failed to create next-level outline: ' + insertError.message);
+          setIsRegenerating(false);
+          return;
+        }
+        setIsRegenerating(false);
+        router.push('/outline');
+        return;
+      }
+
+      // Default: update outline saat ini
       // Pastikan hanya UUID valid yang dikirim ke kolom UUID
       let updatePayload = {
         judul: newOutlineData.judul,
@@ -1040,6 +1079,7 @@ export default function ViewOutlinePage() {
                       bahasa: outline?.bahasa || 'Indonesia',
                       jumlah_modul: parseInt(regenerateForm?.chapters || '2'),
                       jumlah_materi_per_modul: regenerateForm?.lessonsPerModule || '',
+                      isContinuation: true,
                       // Provide previous outline context for continuation
                       previous_outline_title: outline?.judul,
                       previous_outline_tingkat: outline?.tingkat,

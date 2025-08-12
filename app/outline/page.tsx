@@ -181,6 +181,7 @@ export default function OutlinePage() {
           bahasa: "",
           video: "",
           jumlah_modul: "",
+          jumlah_materi_per_modul: "",
         })
         setShowGenerateModal(false)
     } catch (error) {
@@ -445,7 +446,7 @@ export default function OutlinePage() {
                     <div className="text-sm text-muted-foreground">Mata Pelajaran: {outline.mata_pelajaran}</div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className={`border border-border ${getLevelColor(outline.level)}`}>
+                    <Badge variant="outline" className={`border border-border ${getLevelColor(outline.tingkat)}`}>
                       {typeof outline.tingkat === "string" && outline.tingkat.trim() !== '' ? outline.tingkat : "-"}
                     </Badge>
                   </div>
