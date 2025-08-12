@@ -46,8 +46,16 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!/^[^@\s]+@[^@\s]+\.com$/.test(formData.email)) {
-      setError("Hanya email dengan domain .com yang diizinkan untuk mendaftar.");
+    // Validasi email menggunakan regex yang lebih fleksibel untuk semua domain
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email)) {
+      setError("Format email tidak valid. Pastikan email menggunakan format yang benar (contoh: user@domain.com)");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validasi password minimal 6 karakter
+    if (formData.password.length < 6) {
+      setError("Password minimal 6 karakter");
       setIsLoading(false);
       return;
     }
@@ -218,6 +226,9 @@ export default function RegisterPage() {
                 className="mt-1 h-12 border-border focus:border-primary"
                 required
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Password minimal 6 karakter
+              </p>
             </div>
 
             <div>

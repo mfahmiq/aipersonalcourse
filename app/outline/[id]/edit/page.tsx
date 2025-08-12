@@ -216,29 +216,72 @@ export default function EditOutlinePage() {
                     <Input id="judul" value={formData.judul} onChange={(e) => handleInputChange("judul", e.target.value)} required />
                   </div>
                   <div>
-                    <Label htmlFor="mata_pelajaran">Jurusan/Bidang</Label>
-                    <Input id="mata_pelajaran" value={formData.mata_pelajaran} onChange={(e) => handleInputChange("mata_pelajaran", e.target.value)} />
+                    <Label htmlFor="mata_pelajaran">Mata Pelajaran</Label>
+                    <Input id="mata_pelajaran" value={formData.mata_pelajaran} onChange={(e) => handleInputChange("mata_pelajaran", e.target.value)} placeholder="Contoh: Teknik Informatika" />
                   </div>
                   <div>
                     <Label htmlFor="tingkat">Tingkat Kesulitan</Label>
-                    <Input id="tingkat" value={formData.tingkat} onChange={e => handleInputChange("tingkat", e.target.value)} placeholder="Contoh: Pemula, Menengah, Lanjutan" />
+                    <select 
+                      id="tingkat"
+                      value={formData.tingkat} 
+                      onChange={(e) => {
+                        handleInputChange("tingkat", e.target.value)
+                      }}
+                      className="w-full p-3 border border-border bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200"
+                    >
+                      <option value="" className="text-muted-foreground">Pilih tingkat kesulitan</option>
+                      <option value="Pemula" className="text-foreground">Pemula</option>
+                      <option value="Menengah" className="text-foreground">Menengah</option>
+                      <option value="Lanjutan" className="text-foreground">Lanjutan</option>
+                    </select>
                   </div>
                   <div>
                     <Label htmlFor="durasi">Durasi Perkiraan</Label>
-                    <Input id="durasi" value={formData.durasi} onChange={(e) => handleInputChange("durasi", e.target.value)} />
+                    <select 
+                      id="durasi"
+                      value={formData.durasi} 
+                      onChange={(e) => {
+                        handleInputChange("durasi", e.target.value)
+                      }}
+                      className="w-full p-3 border border-border bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200"
+                    >
+                      <option value="" className="text-muted-foreground">Pilih estimasi durasi</option>
+                      <option value="1-2 minggu" className="text-foreground">1-2 minggu</option>
+                      <option value="2-4 minggu" className="text-foreground">2-4 minggu</option>
+                      <option value="1-2 bulan" className="text-foreground">1-2 bulan</option>
+                      <option value="2-3 bulan" className="text-foreground">2-3 bulan</option>
+                      <option value="3-6 bulan" className="text-foreground">3-6 bulan</option>
+                    </select>
                   </div>
                   <div>
                     <Label htmlFor="bahasa">Bahasa</Label>
-                    <Input id="bahasa" value={formData.bahasa} onChange={(e) => handleInputChange("bahasa", e.target.value)} />
+                    <Input id="bahasa" value={formData.bahasa} onChange={(e) => handleInputChange("bahasa", e.target.value)} placeholder="Contoh: Indonesia" />
                   </div>
                   <div>
-                    <Label htmlFor="modules">Jumlah Bab</Label>
-                    <Input id="modules" value={Array.isArray(modules) ? modules.length : 0} readOnly />
+                    <Label htmlFor="jumlah_modul">Jumlah Modul</Label>
+                    <select 
+                      id="jumlah_modul"
+                      value={Array.isArray(modules) ? modules.length : 0} 
+                      onChange={(e) => {
+                        const newCount = parseInt(e.target.value)
+                        // Logic untuk menambah/kurangi modul bisa ditambahkan di sini
+                      }}
+                      className="w-full p-3 border border-border bg-background text-foreground rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200"
+                    >
+                      <option value="0">0 Modul</option>
+                      <option value="1">1 Modul</option>
+                      <option value="2">2 Modul</option>
+                      <option value="3">3 Modul</option>
+                      <option value="4">4 Modul</option>
+                      <option value="5">5 Modul</option>
+                      <option value="6">6 Modul</option>
+                      <option value="7">7 Modul</option>
+                      <option value="8">8 Modul</option>
+                      <option value="9">9 Modul</option>
+                      <option value="10">10 Modul</option>
+                    </select>
                   </div>
-                  <div>
-                    <Label htmlFor="lessons">Jumlah Materi</Label>
-                    <Input id="lessons" value={Array.isArray(modules) ? modules.reduce((total, m) => total + (Array.isArray(m.materi) ? m.materi.length : 0), 0) : 0} readOnly />
-                  </div>
+
                 </div>
                 <div>
                   <Label htmlFor="ringkasan">Ringkasan</Label>

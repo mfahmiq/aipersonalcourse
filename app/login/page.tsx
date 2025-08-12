@@ -6,8 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { GraduationCap, Brain } from "lucide-react"
+import { GraduationCap, Brain, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -16,15 +15,19 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [rememberMe, setRememberMe] = useState(false)
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [isForgotPassword, setIsForgotPassword] = useState(false)
   const supabase = createClientComponentClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setSuccess(null)
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -58,6 +61,71 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError(null)
+    setSuccess(null)
+
+    if (newPassword !== confirmPassword) {
+      setError("Password baru dan konfirmasi password tidak cocok")
+      setIsLoading(false)
+      return
+    }
+
+    if (newPassword.length < 6) {
+      setError("Password minimal 6 karakter")
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          newPassword
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        // Handle specific error for missing service role key
+        if (data.error && data.error.includes('Service role key')) {
+          throw new Error('Fitur reset password belum dikonfigurasi. Silakan hubungi administrator untuk menambahkan SUPABASE_SERVICE_ROLE_KEY.')
+        }
+        throw new Error(data.error || 'Terjadi kesalahan')
+      }
+
+      setSuccess("Password berhasil diubah! Silakan login dengan password baru Anda.")
+      setNewPassword("")
+      setConfirmPassword("")
+      
+      // Kembali ke form login setelah 3 detik
+      setTimeout(() => {
+        setIsForgotPassword(false)
+        setSuccess(null)
+      }, 3000)
+
+    } catch (error: any) {
+      setError(error.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleBackToLogin = () => {
+    setIsForgotPassword(false)
+    setError(null)
+    setSuccess(null)
+    setNewPassword("")
+    setConfirmPassword("")
   }
 
   return (
@@ -98,56 +166,157 @@ export default function LoginPage() {
             </Button>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-foreground mb-2">Selamat datang kembali</h2>
-            <p className="text-muted-foreground">Masukkan kredensial Anda untuk mengakses akun</p>
-          </div>
+          {!isForgotPassword ? (
+            <>
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Selamat datang kembali</h2>
+                <p className="text-muted-foreground">Masukkan kredensial Anda untuk mengakses akun</p>
+              </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
-              {error}
-            </div>
+              {error && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <Label htmlFor="email" className="text-sm font-medium text-foreground">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Masukkan email Anda"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 h-12 border-border focus:border-primary"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                    Kata Sandi
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Masukkan kata sandi Anda"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="mt-1 h-12 border-border focus:border-primary"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-sm text-primary hover:text-primary/90 p-0 h-auto"
+                    onClick={() => setIsForgotPassword(true)}
+                  >
+                    Lupa password?
+                  </Button>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium border border-primary/20"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Masuk..." : "Masuk"}
+                </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <div className="mb-8">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="p-0 h-auto text-muted-foreground hover:text-foreground mb-4"
+                  onClick={handleBackToLogin}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Kembali ke login
+                </Button>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Reset Password</h2>
+                <p className="text-muted-foreground">Masukkan email Anda dan password baru</p>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-700 text-sm">
+                  {success}
+                </div>
+              )}
+
+              <form onSubmit={handleResetPassword} className="space-y-6">
+                <div>
+                  <Label htmlFor="reset-email" className="text-sm font-medium text-foreground">
+                    Email
+                  </Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="Masukkan email Anda"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 h-12 border-border focus:border-primary"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="new-password" className="text-sm font-medium text-foreground">
+                    Password Baru
+                  </Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Masukkan password baru"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="mt-1 h-12 border-border focus:border-primary"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Password minimal 6 karakter
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="confirm-password" className="text-sm font-medium text-foreground">
+                    Konfirmasi Password Baru
+                  </Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Konfirmasi password baru"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="mt-1 h-12 border-border focus:border-primary"
+                    required
+                  />
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium border border-primary/20"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Mengubah Password..." : "Ubah Password"}
+                </Button>
+              </form>
+            </>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Label htmlFor="email" className="text-sm font-medium text-foreground">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Masukkan email Anda"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 h-12 border-border focus:border-primary"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="password" className="text-sm font-medium text-foreground">
-                Kata Sandi
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Masukkan kata sandi Anda"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 h-12 border-border focus:border-primary"
-                required
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-medium border border-primary/20"
-              disabled={isLoading}
-            >
-              {isLoading ? "Masuk..." : "Masuk"}
-            </Button>
-          </form>
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
             {"Belum punya akun? "}

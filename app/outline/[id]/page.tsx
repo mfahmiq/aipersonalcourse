@@ -22,6 +22,8 @@ import { Portal } from "@/components/Portal"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { OUTLINE_PROMPT } from "@/lib/utils/prompts";
 import { LESSON_CONTENT_PROMPT } from "@/lib/utils/prompts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 // Tambahkan fungsi delay
 function delay(ms: number) {
@@ -191,6 +193,7 @@ export default function ViewOutlinePage() {
   const [showRegenerateForm, setShowRegenerateForm] = useState(false)
   const [regenerateForm, setRegenerateForm] = useState<any>(null)
   const [regenerateSuccess, setRegenerateSuccess] = useState(false)
+  const [showContinueModal, setShowContinueModal] = useState(false)
   const { isGenerating, setIsGenerating, generationProgress, setGenerationProgress } = useOverlay();
   const supabase = createClientComponentClient();
 
@@ -200,9 +203,6 @@ export default function ViewOutlinePage() {
       if (error || !data) {
         router.push("/outline");
     } else {
-        console.log("Fetched outline data:", data);
-        console.log("detail_modul:", data.detail_modul);
-        
         // Parse detail_modul jika berupa string JSON
         let modulesList = [];
         if (data.detail_modul) {
@@ -217,8 +217,6 @@ export default function ViewOutlinePage() {
             modulesList = data.detail_modul;
           }
         }
-        
-        console.log("Parsed modulesList:", modulesList);
         
         setOutline({
           ...data,
@@ -374,6 +372,7 @@ export default function ViewOutlinePage() {
       chapters: outline?.jumlah_modul || 2,
       topic: outline?.deskripsi || "",
       goals: outline?.learning_goal || "",
+      lessonsPerModule: "",
       // tambahkan field lain jika ada
     });
     setShowRegenerateForm(true);
@@ -611,6 +610,14 @@ export default function ViewOutlinePage() {
           >
             {isRegenerating ? "Menghasilkan ulang..." : "Regenerasi Outline"}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50"
+            onClick={() => setShowContinueModal(true)}
+          >
+            Lanjutkan ke Tingkat Berikutnya
+          </Button>
           <Button variant="outline" size="sm" className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50" onClick={handleEditClick}>
             <Edit className="h-4 w-4" />
             Edit
@@ -686,12 +693,57 @@ export default function ViewOutlinePage() {
               {/* Hapus citation [angka, ...] di akhir kalimat overview */}
               <p className="text-muted-foreground leading-relaxed">{outline.ringkasan?.replace(/\s*\[[^\]]*\]/g, "")}</p>
 
-              {outline.topik && (
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
-                  <h3 className="font-medium text-foreground mb-2">Fokus Topik</h3>
-                  <p className="text-muted-foreground">{outline.topik}</p>
-                </div>
-              )}
+              {/* Removed Fokus Topik section as per request */}
+
+              {/* Prasyarat Materi */}
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
+                <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  Prasyarat Materi
+                </h3>
+                {outline.prasyarat && outline.prasyarat.trim() !== '' ? (
+                  <div className="text-muted-foreground leading-relaxed">
+                    {(() => {
+                      let prasyaratList: string[] = [];
+                      
+                      // Try to parse as JSON array first
+                      try {
+                        if (outline.prasyarat.startsWith('[') && outline.prasyarat.endsWith(']')) {
+                          const parsed = JSON.parse(outline.prasyarat);
+                          if (Array.isArray(parsed)) {
+                            prasyaratList = parsed;
+                          }
+                        }
+                      } catch (e) {
+                        // If JSON parsing fails, use comma-separated approach
+                      }
+                      
+                      // If not JSON array, split by comma
+                      if (prasyaratList.length === 0) {
+                        prasyaratList = outline.prasyarat
+                          .split(',')
+                          .map((item: string) => item.trim())
+                          .filter((item: string) => item && item !== 'dan' && item !== 'dan JavaScript' && item !== 'tipe data' && item !== 'operator');
+                      }
+                      
+                      // Convert to flowing narrative text
+                      if (prasyaratList.length === 1) {
+                        return prasyaratList[0];
+                      } else if (prasyaratList.length === 2) {
+                        return `${prasyaratList[0]} dan ${prasyaratList[1]}`;
+                      } else {
+                        const lastItem = prasyaratList[prasyaratList.length - 1];
+                        const otherItems = prasyaratList.slice(0, -1);
+                        return `${otherItems.join(', ')} dan ${lastItem}`;
+                      }
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    Tidak ada prasyarat khusus yang diperlukan untuk kursus ini.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -762,6 +814,7 @@ export default function ViewOutlinePage() {
                     durasi: regenerateForm.duration || "",
                     bahasa: regenerateForm.language || "",
                     jumlah_modul: parseInt(regenerateForm.chapters) || 2,
+                    jumlah_materi_per_modul: regenerateForm.lessonsPerModule || "",
                     deskripsi: regenerateForm.topic || outline?.deskripsi || "",
                     ringkasan: outline?.ringkasan || ""
                   }
@@ -785,7 +838,7 @@ export default function ViewOutlinePage() {
                         />
                       </div>
                       <div>
-                        <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-foreground text-base"><Layers className="w-5 h-5 text-blue-600" /> Bidang Studi</label>
+                        <label htmlFor="degree" className="flex items-center gap-2 font-semibold text-foreground text-base"><Layers className="w-5 h-5 text-blue-600" /> Mata Pelajaran</label>
                         <input
                           className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
                           value={regenerateForm.degree || ""}
@@ -795,21 +848,31 @@ export default function ViewOutlinePage() {
                       </div>
                       <div>
                         <label htmlFor="difficulty" className="flex items-center gap-2 font-semibold text-foreground text-base"><BookOpen className="w-5 h-5 text-blue-600" /> Tingkat Kesulitan</label>
-                        <input
-                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
-                          value={regenerateForm.difficulty || ""}
-                          onChange={e => setRegenerateForm((f: any) => ({ ...f, difficulty: e.target.value }))}
-                          placeholder="Contoh: Pemula"
-                        />
+                        <Select value={regenerateForm.difficulty || ""} onValueChange={(value) => setRegenerateForm((f: any) => ({ ...f, difficulty: value }))}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Pilih tingkat kesulitan" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[1000002]">
+                            <SelectItem value="Pemula">Pemula</SelectItem>
+                            <SelectItem value="Menengah">Menengah</SelectItem>
+                            <SelectItem value="Lanjutan">Lanjutan</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-foreground text-base"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</label>
-                        <input
-                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
-                          value={regenerateForm.duration || ""}
-                          onChange={e => setRegenerateForm((f: any) => ({ ...f, duration: e.target.value }))}
-                          placeholder="Contoh: 4 minggu"
-                        />
+                        <Select value={regenerateForm.duration || ""} onValueChange={(value) => setRegenerateForm((f: any) => ({ ...f, duration: value }))}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Pilih estimasi durasi" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[1000002]">
+                            <SelectItem value="1-2 minggu">1-2 minggu</SelectItem>
+                            <SelectItem value="2-4 minggu">2-4 minggu</SelectItem>
+                            <SelectItem value="1-2 bulan">1-2 bulan</SelectItem>
+                            <SelectItem value="2-3 bulan">2-3 bulan</SelectItem>
+                            <SelectItem value="3-6 bulan">3-6 bulan</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <label htmlFor="language" className="flex items-center gap-2 font-semibold text-foreground text-base"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</label>
@@ -821,13 +884,38 @@ export default function ViewOutlinePage() {
                         />
                       </div>
                       <div>
-                        <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-foreground text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Bab</label>
-                        <input
-                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
-                          value={regenerateForm.chapters || ""}
-                          onChange={e => setRegenerateForm((f: any) => ({ ...f, chapters: e.target.value }))}
-                          placeholder="5"
-                        />
+                        <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-foreground text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Modul</label>
+                        <Select value={regenerateForm.chapters || ""} onValueChange={(value) => setRegenerateForm((f: any) => ({ ...f, chapters: value }))}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Pilih jumlah modul" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[1000002]">
+                            <SelectItem value="1">1 Modul</SelectItem>
+                            <SelectItem value="2">2 Modul</SelectItem>
+                            <SelectItem value="3">3 Modul</SelectItem>
+                            <SelectItem value="4">4 Modul</SelectItem>
+                            <SelectItem value="5">5 Modul</SelectItem>
+                            <SelectItem value="6">6 Modul</SelectItem>
+                            <SelectItem value="7">7 Modul</SelectItem>
+                            <SelectItem value="8">8 Modul</SelectItem>
+                            <SelectItem value="9">9 Modul</SelectItem>
+                            <SelectItem value="10">10 Modul</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label htmlFor="lessonsPerModule" className="flex items-center gap-2 font-semibold text-foreground text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Materi per Modul</label>
+                        <Select value={regenerateForm.lessonsPerModule || ""} onValueChange={(value) => setRegenerateForm((f: any) => ({ ...f, lessonsPerModule: value }))}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Pilih jumlah materi per modul" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[1000002]">
+                            <SelectItem value="1">1</SelectItem>
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="3">3</SelectItem>
+                            <SelectItem value="4">4</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                     <div className="mt-4">
@@ -889,6 +977,83 @@ export default function ViewOutlinePage() {
                   <div className="text-muted-foreground text-sm text-center">AI sedang membuat outline kursus baru Anda. Mohon tunggu sebentar.</div>
                 </>
               )}
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Continue to Next Level Modal */}
+      {showContinueModal && (
+        <Portal>
+          <div className="fixed inset-0 w-screen h-screen bg-black bg-opacity-40 flex flex-col items-center justify-center" style={{zIndex: 1000000}}>
+            <div className="bg-background border rounded-2xl shadow-2xl p-0 w-full max-w-xl overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b">
+                <h3 className="text-lg font-semibold">Lanjutkan ke Tingkat Berikutnya</h3>
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => setShowContinueModal(false)}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <Label className="mb-1 block">Tingkat Berikutnya</Label>
+                  <Select defaultValue={outline?.tingkat === 'Pemula' ? 'Menengah' : 'Lanjutan'} onValueChange={(value) => setRegenerateForm((f: any) => ({ ...(f||{}), difficulty: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih tingkat" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000002]">
+                      {outline?.tingkat !== 'Lanjutan' && <SelectItem value="Menengah">Menengah</SelectItem>}
+                      <SelectItem value="Lanjutan">Lanjutan</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="mb-1 block">Jumlah Modul</Label>
+                  <Select onValueChange={(value) => setRegenerateForm((f: any) => ({ ...(f||{}), chapters: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih jumlah modul" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000002]">
+                      {[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{n} Modul</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="mb-1 block">Jumlah Materi per Modul</Label>
+                  <Select onValueChange={(value) => setRegenerateForm((f: any) => ({ ...(f||{}), lessonsPerModule: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih jumlah materi" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000002]">
+                      {[1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  className="w-full bg-primary text-primary-foreground"
+                  onClick={() => {
+                    const convertedFormData = {
+                      judul: outline?.judul || '',
+                      topik: outline?.topik || outline?.deskripsi || '',
+                      mata_pelajaran: outline?.mata_pelajaran || '',
+                      tingkat: (regenerateForm?.difficulty) || (outline?.tingkat === 'Pemula' ? 'Menengah' : 'Lanjutan'),
+                      durasi: outline?.durasi || '',
+                      bahasa: outline?.bahasa || 'Indonesia',
+                      jumlah_modul: parseInt(regenerateForm?.chapters || '2'),
+                      jumlah_materi_per_modul: regenerateForm?.lessonsPerModule || '',
+                      // Provide previous outline context for continuation
+                      previous_outline_title: outline?.judul,
+                      previous_outline_tingkat: outline?.tingkat,
+                      previous_outline_ringkasan: outline?.ringkasan,
+                      previous_outline_modules: Array.isArray(outline?.modulesList) ? outline.modulesList.map((m: any) => m.judul) : [],
+                      deskripsi: outline?.deskripsi || ''
+                    }
+                    setShowContinueModal(false)
+                    handleRegenerateOutline(convertedFormData)
+                  }}
+                >
+                  Buat Outline Tingkat Selanjutnya
+                </Button>
+              </div>
             </div>
           </div>
         </Portal>

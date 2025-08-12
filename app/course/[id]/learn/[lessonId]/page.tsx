@@ -274,13 +274,13 @@ export default function LessonPage() {
   // Debug: log course, currentLesson, allLessons
   useEffect(() => {
     if (course) {
-      console.log('COURSE DATA:', course);
+      // console.log('COURSE DATA:', course);
     }
     if (currentLesson) {
-      console.log('CURRENT LESSON:', currentLesson);
+      // console.log('CURRENT LESSON:', currentLesson);
     }
     if (allLessons) {
-      console.log('ALL LESSONS:', allLessons);
+      // console.log('ALL LESSONS:', allLessons);
     }
   }, [course, currentLesson, allLessons]);
 
@@ -316,7 +316,7 @@ export default function LessonPage() {
         .from("kursus")
         .update({ kemajuan: newProgress, materi_selesai: updatedCompleted, updated_at: new Date().toISOString() })
         .eq("id", courseId);
-      console.log("Course progress and completed lessons updated in Supabase");
+      // console.log("Course progress and completed lessons updated in Supabase");
     } catch (err: any) {
       console.error("Error updating course progress in Supabase:", err);
     }
@@ -423,13 +423,13 @@ export default function LessonPage() {
                 moduleIndex: mIdx,
                 courseId: course.courseId,
               });
-              console.log('lesson', lesson);
+              // console.log('lesson', lesson);
             });
           }
         });
       }
       setAllLessons(allLessonsArray);
-      console.log('allLessonsArray', allLessonsArray);
+      // console.log('allLessonsArray', allLessonsArray);
     }
   }, [course]);
 

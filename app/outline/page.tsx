@@ -30,6 +30,7 @@ export default function OutlinePage() {
     bahasa: "",
     video: "",
     jumlah_modul: "",
+    jumlah_materi_per_modul: "",
   })
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -71,22 +72,6 @@ export default function OutlinePage() {
     try {
       const generatedOutline = await generateOutline(formData, process.env.NEXT_PUBLIC_GEMINI_API_KEY!)
       
-      console.log("Generated outline structure:", {
-        hasJudul: !!generatedOutline.judul,
-        hasDeskripsi: !!generatedOutline.deskripsi,
-        hasTopik: !!generatedOutline.topik,
-        hasTingkat: !!generatedOutline.tingkat,
-        hasDurasi: !!generatedOutline.durasi,
-        hasBahasa: !!generatedOutline.bahasa,
-        hasMataPelajaran: !!generatedOutline.mata_pelajaran,
-        hasRingkasan: !!generatedOutline.ringkasan,
-        hasModulesList: !!generatedOutline.modulesList,
-        modulesListType: typeof generatedOutline.modulesList,
-        modulesListLength: Array.isArray(generatedOutline.modulesList) ? generatedOutline.modulesList.length : 'not array',
-        modulesListSample: Array.isArray(generatedOutline.modulesList) ? generatedOutline.modulesList[0] : null,
-        fullOutline: generatedOutline
-      });
-      
       // Add missing fields that were previously generated client-side if needed
       if (!generatedOutline.createdAt) {
         generatedOutline.createdAt = new Date().toISOString();
@@ -105,6 +90,23 @@ export default function OutlinePage() {
   const handleGenerateOutline = async () => {
     if (!formData.judul || !formData.topik) {
       alert("Silakan isi minimal judul dan topik")
+      return
+    }
+
+    // Validasi deskripsi topik
+    if (formData.topik.length < 50) {
+      alert("Deskripsi topik terlalu singkat. Silakan jelaskan topik secara detail minimal 50 karakter.")
+      return
+    }
+
+    // Validasi bahwa topik tidak terlalu generic
+    const genericTopics = ['programming', 'coding', 'web development', 'software development', 'computer science', 'informatika', 'teknologi']
+    const isGeneric = genericTopics.some(topic => 
+      formData.topik.toLowerCase().includes(topic.toLowerCase()) && formData.topik.length < 100
+    )
+    
+    if (isGeneric) {
+      alert("Deskripsi topik terlalu generic. Silakan jelaskan topik secara spesifik dengan teknologi, framework, atau konsep yang akan dipelajari.")
       return
     }
 
@@ -141,10 +143,9 @@ export default function OutlinePage() {
           jumlah_modul: modulesCount,
           jumlah_materi: lessonsCount,
           ringkasan: newOutline.ringkasan || "",
+          prasyarat: newOutline.prasyarat || "", // ✅ Tambahkan field prasyarat
           detail_modul: newOutline.modulesList || []
         };
-        
-        console.log("Inserting data:", insertData);
         
         const { error: dbError } = await supabase.from("outlines").insert(insertData);
         
@@ -277,7 +278,7 @@ export default function OutlinePage() {
             <div className="bg-white border rounded-2xl shadow-2xl p-0 w-full max-w-xl max-h-[95vh] overflow-y-auto relative animate-fadeIn">
               <button
                 type="button"
-                className="absolute top-3 right-3 text-2xl text-blue-600 hover:text-blue-700 transition-colors"
+                className="absolute top-3 right-3 text-2xl text-blue-600 hover:text-blue-700 transition-colors z-[10002]"
                 onClick={() => setShowGenerateModal(false)}
                 aria-label="Close"
               >
@@ -293,52 +294,96 @@ export default function OutlinePage() {
                     Jelaskan apa yang ingin Anda pelajari dan AI kami akan membuatkan outline kursus yang komprehensif untuk Anda.
                   </p>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="relative z-[10001]">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="judul" className="flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600" /> Judul</Label>
-                      <Input id="judul" placeholder="Contoh: Pengantar Pengembangan Web" value={formData.judul} onChange={e => handleInputChange("judul", e.target.value)} className="mt-1" />
+                      <Input id="judul" placeholder="Contoh: Pengantar Pengembangan Web" value={formData.judul} onChange={e => handleInputChange("judul", e.target.value)} className="mt-1" required />
                     </div>
                     <div>
                       <Label htmlFor="mata_pelajaran" className="flex items-center gap-2"><Layers className="w-5 h-5 text-blue-600" /> Mata Pelajaran</Label>
-                      <Input id="mata_pelajaran" placeholder="Contoh: Informatika" value={formData.mata_pelajaran} onChange={e => handleInputChange("mata_pelajaran", e.target.value)} className="mt-1" />
+                      <Input id="mata_pelajaran" placeholder="Contoh: Teknik Informatika" value={formData.mata_pelajaran} onChange={e => handleInputChange("mata_pelajaran", e.target.value)} className="mt-1" required />
                     </div>
-                    <div>
+                    <div className="relative">
                       <Label htmlFor="tingkat" className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-blue-600" /> Tingkat Kesulitan</Label>
-                      <Input id="tingkat" placeholder="Contoh: Pemula" value={formData.tingkat} onChange={e => handleInputChange("tingkat", e.target.value)} className="mt-1" />
+                      <Select value={formData.tingkat} onValueChange={(value) => handleInputChange("tingkat", value)}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Pilih tingkat kesulitan" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10003]">
+                          <SelectItem value="Pemula">Pemula</SelectItem>
+                          <SelectItem value="Menengah">Menengah</SelectItem>
+                          <SelectItem value="Lanjutan">Lanjutan</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div>
+                    <div className="relative">
                       <Label htmlFor="durasi" className="flex items-center gap-2"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</Label>
-                      <Input id="durasi" placeholder="Contoh: 4 minggu" value={formData.durasi} onChange={e => handleInputChange("durasi", e.target.value)} className="mt-1" />
+                      <Select value={formData.durasi} onValueChange={(value) => handleInputChange("durasi", value)}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Pilih estimasi durasi" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10003]">
+                          <SelectItem value="1-2 minggu">1-2 minggu</SelectItem>
+                          <SelectItem value="2-4 minggu">2-4 minggu</SelectItem>
+                          <SelectItem value="1-2 bulan">1-2 bulan</SelectItem>
+                          <SelectItem value="2-3 bulan">2-3 bulan</SelectItem>
+                          <SelectItem value="3-6 bulan">3-6 bulan</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="bahasa" className="flex items-center gap-2"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</Label>
                       <Input id="bahasa" placeholder="Contoh: Indonesia" value={formData.bahasa} onChange={e => handleInputChange("bahasa", e.target.value)} className="mt-1" />
                     </div>
-                    <div>
+                    <div className="relative">
                       <Label htmlFor="jumlah_modul" className="flex items-center gap-2"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Modul</Label>
-                      <Input
-                        id="jumlah_modul"
-                        placeholder="5"
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={formData.jumlah_modul}
-                        onChange={(e) => handleInputChange("jumlah_modul", e.target.value)}
-                        className="mt-1"
-                      />
+                      <Select value={formData.jumlah_modul} onValueChange={(value) => handleInputChange("jumlah_modul", value)}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Pilih jumlah modul" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10003]">
+                          <SelectItem value="1">1 Modul</SelectItem>
+                          <SelectItem value="2">2 Modul</SelectItem>
+                          <SelectItem value="3">3 Modul</SelectItem>
+                          <SelectItem value="4">4 Modul</SelectItem>
+                          <SelectItem value="5">5 Modul</SelectItem>
+                          <SelectItem value="6">6 Modul</SelectItem>
+                          <SelectItem value="7">7 Modul</SelectItem>
+                          <SelectItem value="8">8 Modul</SelectItem>
+                          <SelectItem value="9">9 Modul</SelectItem>
+                          <SelectItem value="10">10 Modul</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="relative">
+                      <Label htmlFor="jumlah_materi_per_modul" className="flex items-center gap-2"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Materi per Modul</Label>
+                      <Select value={formData.jumlah_materi_per_modul} onValueChange={(value) => handleInputChange("jumlah_materi_per_modul", value)}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Pilih jumlah materi per modul" />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10003]">
+                          <SelectItem value="1">1</SelectItem>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                          <SelectItem value="4">4</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="mt-4">
-                    <Label htmlFor="topik" className="flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" /> Deskripsi Topik</Label>
+                    <Label htmlFor="topik" className="flex items-center gap-2"><FileText className="w-5 h-5 text-blue-600" /> Deskripsi Topik <span className="text-red-500">*</span></Label>
                     <Textarea
                       id="topik"
-                      placeholder="Jelaskan topik secara detail"
+                      placeholder="Jelaskan topik secara detail dan spesifik. Contoh: 'Kursus ini akan mengajarkan dasar-dasar HTML, CSS, dan JavaScript untuk membuat website responsif. Termasuk praktik membuat landing page, form interaktif, dan integrasi dengan API sederhana.'"
                       value={formData.topik}
                       onChange={e => handleInputChange("topik", e.target.value)}
-                      className="mt-1 min-h-[100px] resize-y"
+                      className="mt-1 min-h-[120px] resize-y"
                       required
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      * Deskripsi topik harus detail dan spesifik untuk menghasilkan outline yang berkualitas
+                    </p>
                   </div>
                   <Button
                     onClick={handleGenerateOutline}

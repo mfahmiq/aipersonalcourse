@@ -163,7 +163,6 @@ export default function Dashboard() {
     { title: "Total Kursus", value: stats.total, subtitle: "Kursus yang diikuti", icon: BookOpen, color: "bg-blue-100 text-blue-600" },
     { title: "Sedang Berjalan", value: stats.inProgress, subtitle: "Belajar aktif", icon: Clock, color: "bg-purple-100 text-purple-600" },
     { title: "Selesai", value: stats.completed, subtitle: "Kursus selesai", icon: CheckCircle, color: "bg-green-100 text-green-600" },
-    { title: "Rata-rata Progres", value: `${Math.min(stats.avgProgress, 100)}%`, subtitle: "Dari semua kursus", icon: TrendingUp, color: "bg-pink-100 text-pink-600" },
   ]
 
   // Filter aktivitas terbaru hanya untuk kursus yang sudah ada progres
@@ -180,7 +179,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {statsData.map((stat, index) => (
           <Card key={index} className="border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

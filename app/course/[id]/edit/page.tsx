@@ -217,22 +217,32 @@ export default function EditCoursePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="level">Tingkat</Label>
-              <Input
-                id="level"
-                value={formData.level}
-                onChange={(e) => setFormData(prev => ({ ...prev, level: e.target.value }))}
-                placeholder="cth: Pemula, Menengah, Lanjutan"
-              />
+              <Select value={formData.level} onValueChange={(value) => setFormData(prev => ({ ...prev, level: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih tingkat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pemula">Pemula</SelectItem>
+                  <SelectItem value="Menengah">Menengah</SelectItem>
+                  <SelectItem value="Lanjutan">Lanjutan</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="duration">Durasi</Label>
-              <Input
-                id="duration"
-                value={formData.duration}
-                onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                placeholder="cth: 8 minggu"
-              />
+              <Select value={formData.duration} onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih durasi" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1-2 minggu">1-2 minggu</SelectItem>
+                  <SelectItem value="2-4 minggu">2-4 minggu</SelectItem>
+                  <SelectItem value="1-2 bulan">1-2 bulan</SelectItem>
+                  <SelectItem value="2-3 bulan">2-3 bulan</SelectItem>
+                  <SelectItem value="3-6 bulan">3-6 bulan</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
