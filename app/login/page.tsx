@@ -318,12 +318,7 @@ export default function LoginPage() {
             </>
           )}
 
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            {"Belum punya akun? "}
-            <Link href="/register" className="text-primary hover:text-primary/90 font-medium">
-              Daftar di sini
-            </Link>
-          </p>
+
         </div>
       </div>
     </div>

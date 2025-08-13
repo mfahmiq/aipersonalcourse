@@ -256,12 +256,7 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            Sudah punya akun?{" "}
-            <Link href="/login" className="text-primary hover:text-primary/90 font-medium">
-              Masuk di sini
-            </Link>
-          </p>
+
         </div>
       </div>
     </div>
