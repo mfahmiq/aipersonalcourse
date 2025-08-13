@@ -363,18 +363,41 @@ export default function ViewOutlinePage() {
   }
 
   const handleOpenRegenerateModal = () => {
-    setRegenerateForm({
+    // Calculate lessons per module from existing data if available
+    let lessonsPerModule = outline?.jumlah_materi_per_modul;
+    if (!lessonsPerModule && Array.isArray(outline?.modulesList) && outline.modulesList.length > 0) {
+      // Calculate average lessons per module from existing data
+      const totalLessons = outline.modulesList.reduce((acc: number, m: any) => 
+        acc + (Array.isArray(m.materi) ? m.materi.length : 0), 0);
+      lessonsPerModule = totalLessons > 0 ? Math.ceil(totalLessons / outline.modulesList.length).toString() : "3";
+    }
+
+    // Calculate module count from existing data if database field is missing
+    let moduleCount = outline?.jumlah_modul;
+    if (!moduleCount && Array.isArray(outline?.modulesList)) {
+      moduleCount = outline.modulesList.length;
+    }
+
+    // Debug logging
+    console.log("Outline data:", outline);
+    console.log("Calculated moduleCount:", moduleCount);
+    console.log("Calculated lessonsPerModule:", lessonsPerModule);
+
+    const formData = {
       title: outline?.judul || "",
       degree: outline?.mata_pelajaran || "",
       difficulty: outline?.tingkat || "",
       duration: outline?.durasi || "",
       language: outline?.bahasa || "",
-      chapters: outline?.jumlah_modul || 2,
+      chapters: moduleCount?.toString() || "2",
       topic: outline?.deskripsi || "",
       goals: outline?.learning_goal || "",
-      lessonsPerModule: "",
+      lessonsPerModule: lessonsPerModule || "3",
       // tambahkan field lain jika ada
-    });
+    };
+
+    console.log("Setting regenerateForm with:", formData);
+    setRegenerateForm(formData);
     setShowRegenerateForm(true);
   };
 
@@ -732,6 +755,8 @@ export default function ViewOutlinePage() {
               {/* Hapus citation [angka, ...] di akhir kalimat overview */}
               <p className="text-muted-foreground leading-relaxed">{outline.ringkasan?.replace(/\s*\[[^\]]*\]/g, "")}</p>
 
+
+
               {/* Removed Fokus Topik section as per request */}
 
               {/* Prasyarat Materi */}
@@ -897,6 +922,24 @@ export default function ViewOutlinePage() {
                             <SelectItem value="Lanjutan">Lanjutan</SelectItem>
                           </SelectContent>
                         </Select>
+                        {regenerateForm.difficulty && (
+                          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800 font-medium mb-1">
+                              {regenerateForm.difficulty}
+                            </p>
+                            <p className="text-xs text-blue-700 leading-relaxed">
+                              {regenerateForm.difficulty === "Pemula" && 
+                                "Kursus ini cocok untuk pemula yang belum memiliki pengalaman sama sekali dalam topik ini. Akan dimulai dari konsep paling dasar, dengan penjelasan yang detail."
+                              }
+                              {regenerateForm.difficulty === "Menengah" && 
+                                "Kursus ini ditujukan untuk peserta yang sudah memahami konsep dasar dan ingin meningkatkan keterampilan mereka. Akan membahas topik yang lebih kompleks dari tingkat sebelumnya."
+                              }
+                              {regenerateForm.difficulty === "Lanjutan" && 
+                                "Kursus ini untuk peserta yang sudah mahir dan ingin mendalami topik pembelajaran lebih dalam. Akan membahas topik materi yang lebih kompleks dari tingkat sebelumnya."
+                              }
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label htmlFor="duration" className="flex items-center gap-2 font-semibold text-foreground text-base"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</label>
@@ -907,20 +950,35 @@ export default function ViewOutlinePage() {
                           <SelectContent className="z-[1000002]">
                             <SelectItem value="1-2 minggu">1-2 minggu</SelectItem>
                             <SelectItem value="2-4 minggu">2-4 minggu</SelectItem>
-                            <SelectItem value="1-2 bulan">1-2 bulan</SelectItem>
-                            <SelectItem value="2-3 bulan">2-3 bulan</SelectItem>
-                            <SelectItem value="3-6 bulan">3-6 bulan</SelectItem>
+                            <SelectItem value="4-6 minggu">4-6 minggu</SelectItem>
+                            <SelectItem value="6-8 minggu">6-8 minggu</SelectItem>
+                            <SelectItem value="8-12 minggu">8-12 minggu</SelectItem>
                           </SelectContent>
                         </Select>
+                        {regenerateForm.duration && (
+                          <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-sm text-green-800 font-medium mb-1">
+                              Estimasi Waktu Belajar
+                            </p>
+                            <p className="text-xs text-green-700 leading-relaxed">
+                              {regenerateForm.duration === "1-2 minggu" && 
+                                "Kursus intensif yang dapat diselesaikan dalam 1-2 minggu dengan belajar 2-3 jam per hari. Cocok untuk topik yang fokus dan spesifik. Rekomendasi: 1-2 modul."
+                              }
+                              {regenerateForm.duration === "2-4 minggu" && 
+                                "Kursus yang dapat diselesaikan dalam 2-4 minggu dengan belajar 1-2 jam per hari. Memberikan waktu cukup untuk praktik dan pemahaman mendalam. Rekomendasi: 2-3 modul."
+                              }
+                              {regenerateForm.duration === "4-6 minggu" && 
+                                "Kursus komprehensif yang dapat diselesaikan dalam 4-6 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk eksplorasi lebih dalam. Rekomendasi: 3-4 modul."
+                              }
+                              {regenerateForm.duration === "6-8 minggu" && 
+                                "Kursus mendalam yang dapat diselesaikan dalam 6-8 minggu dengan belajar 1 jam per hari. Cocok untuk topik yang luas dan kompleks. Rekomendasi: 4-5 modul."
+                              }
+                              {regenerateForm.duration === "8-12 minggu" && 
+                                "Kursus yang dapat diselesaikan dalam 8-12 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk penguasaan materi lebih mendalam. Rekomendasi: 5 modul."
+                              }
+                            </p>
                       </div>
-                      <div>
-                        <label htmlFor="language" className="flex items-center gap-2 font-semibold text-foreground text-base"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</label>
-                        <input
-                          className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
-                          value={regenerateForm.language || ""}
-                          onChange={e => setRegenerateForm((f: any) => ({ ...f, language: e.target.value }))}
-                          placeholder="Contoh: Indonesia"
-                        />
+                        )}
                       </div>
                       <div>
                         <label htmlFor="chapters" className="flex items-center gap-2 font-semibold text-foreground text-base"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Modul</label>
@@ -960,6 +1018,15 @@ export default function ViewOutlinePage() {
                         onChange={e => setRegenerateForm((f: any) => ({ ...f, topic: e.target.value }))}
                         required
                         placeholder="Jelaskan topik secara detail"
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <label htmlFor="language" className="flex items-center gap-2 font-semibold text-foreground text-base"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</label>
+                      <input
+                        className="w-full border border-border rounded-lg px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-base text-foreground bg-background"
+                        value={regenerateForm.language || ""}
+                        onChange={e => setRegenerateForm((f: any) => ({ ...f, language: e.target.value }))}
+                        placeholder="Contoh: Indonesia"
                       />
                     </div>
                     {/* Removed Learning Goals section */}
@@ -1039,6 +1106,21 @@ export default function ViewOutlinePage() {
                       <SelectItem value="Lanjutan">Lanjutan</SelectItem>
                     </SelectContent>
                   </Select>
+                  {regenerateForm?.difficulty && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800 font-medium mb-1">
+                        {regenerateForm.difficulty}
+                      </p>
+                      <p className="text-xs text-blue-700 leading-relaxed">
+                        {regenerateForm.difficulty === "Menengah" && 
+                          "Kursus ini ditujukan untuk peserta yang sudah memahami konsep dasar dan ingin meningkatkan keterampilan mereka. Akan membahas topik yang lebih kompleks dari tingkat sebelumnya."
+                        }
+                        {regenerateForm.difficulty === "Lanjutan" && 
+                          "Kursus ini untuk peserta yang sudah mahir dan ingin mendalami topik pembelajaran lebih dalam. Akan membahas topik materi yang lebih kompleks dari tingkat sebelumnya."
+                        }
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label className="mb-1 block">Jumlah Modul</Label>
@@ -1062,6 +1144,45 @@ export default function ViewOutlinePage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label className="mb-1 block">Estimasi Durasi</Label>
+                  <Select onValueChange={(value) => setRegenerateForm((f: any) => ({ ...(f||{}), duration: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih estimasi durasi" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[1000002]">
+                      <SelectItem value="1-2 minggu">1-2 minggu</SelectItem>
+                      <SelectItem value="2-4 minggu">2-4 minggu</SelectItem>
+                      <SelectItem value="4-6 minggu">4-6 minggu</SelectItem>
+                      <SelectItem value="6-8 minggu">6-8 minggu</SelectItem>
+                      <SelectItem value="8-12 minggu">8-12 minggu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {regenerateForm?.duration && (
+                    <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800 font-medium mb-1">
+                        Estimasi Waktu Belajar
+                      </p>
+                      <p className="text-xs text-green-700 leading-relaxed">
+                        {regenerateForm.duration === "1-2 minggu" && 
+                          "Kursus intensif yang dapat diselesaikan dalam 1-2 minggu dengan belajar 2-3 jam per hari. Cocok untuk topik yang fokus dan spesifik. Rekomendasi: 1-2 modul."
+                        }
+                        {regenerateForm.duration === "2-4 minggu" && 
+                          "Kursus yang dapat diselesaikan dalam 2-4 minggu dengan belajar 1-2 jam per hari. Memberikan waktu cukup untuk praktik dan pemahaman mendalam. Rekomendasi: 2-3 modul."
+                        }
+                        {regenerateForm.duration === "4-6 minggu" && 
+                          "Kursus komprehensif yang dapat diselesaikan dalam 4-6 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk eksplorasi lebih dalam. Rekomendasi: 3-4 modul."
+                        }
+                        {regenerateForm.duration === "6-8 minggu" && 
+                          "Kursus mendalam yang dapat diselesaikan dalam 6-8 minggu dengan belajar 1 jam per hari. Cocok untuk topik yang luas dan kompleks. Rekomendasi: 4-5 modul."
+                        }
+                        {regenerateForm.duration === "8-12 minggu" && 
+                          "Kursus yang dapat diselesaikan dalam 8-12 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk penguasaan materi lebih mendalam. Rekomendasi: 5 modul."
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
                 <Button
                   className="w-full bg-primary text-primary-foreground"
                   onClick={() => {
@@ -1070,7 +1191,7 @@ export default function ViewOutlinePage() {
                       topik: outline?.topik || outline?.deskripsi || '',
                       mata_pelajaran: outline?.mata_pelajaran || '',
                       tingkat: (regenerateForm?.difficulty) || (outline?.tingkat === 'Pemula' ? 'Menengah' : 'Lanjutan'),
-                      durasi: outline?.durasi || '',
+                      durasi: regenerateForm?.duration || outline?.durasi || '',
                       bahasa: outline?.bahasa || 'Indonesia',
                       jumlah_modul: parseInt(regenerateForm?.chapters || '2'),
                       jumlah_materi_per_modul: regenerateForm?.lessonsPerModule || '',

@@ -227,6 +227,26 @@ export default function EditCoursePage() {
                   <SelectItem value="Lanjutan">Lanjutan</SelectItem>
                 </SelectContent>
               </Select>
+              {formData.level && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 font-medium mb-1">
+                    {formData.level === "Pemula" && "Pemula"}
+                    {formData.level === "Menengah" && "Menengah"}
+                    {formData.level === "Lanjutan" && "Lanjutan"}
+                  </p>
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    {formData.level === "Pemula" && 
+                      "Kursus ini cocok untuk pemula yang belum memiliki pengalaman sama sekali dalam topik ini. Akan dimulai dari konsep paling dasar, dengan penjelasan yang detail dan banyak contoh praktis. Tidak memerlukan pengetahuan sebelumnya."
+                    }
+                    {formData.level === "Menengah" && 
+                      "Kursus ini ditujukan untuk peserta yang sudah memahami konsep dasar dan ingin meningkatkan keterampilan mereka. Akan membahas topik yang lebih kompleks dan aplikasi praktis yang lebih menantang."
+                    }
+                    {formData.level === "Lanjutan" && 
+                      "Kursus ini untuk peserta yang sudah mahir dan ingin mendalami topik tingkat lanjut. Akan membahas konsep-konsep kompleks, best practices, dan teknik-teknik profesional yang digunakan dalam industri."
+                    }
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -238,11 +258,35 @@ export default function EditCoursePage() {
                 <SelectContent>
                   <SelectItem value="1-2 minggu">1-2 minggu</SelectItem>
                   <SelectItem value="2-4 minggu">2-4 minggu</SelectItem>
-                  <SelectItem value="1-2 bulan">1-2 bulan</SelectItem>
-                  <SelectItem value="2-3 bulan">2-3 bulan</SelectItem>
-                  <SelectItem value="3-6 bulan">3-6 bulan</SelectItem>
+                  <SelectItem value="4-6 minggu">4-6 minggu</SelectItem>
+                  <SelectItem value="6-8 minggu">6-8 minggu</SelectItem>
+                  <SelectItem value="8-12 minggu">8-12 minggu</SelectItem>
                 </SelectContent>
               </Select>
+              {formData.duration && (
+                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium mb-1">
+                    Estimasi Waktu Belajar
+                  </p>
+                  <p className="text-xs text-green-700 leading-relaxed">
+                    {formData.duration === "1-2 minggu" && 
+                      "Kursus intensif yang dapat diselesaikan dalam 1-2 minggu dengan belajar 2-3 jam per hari. Cocok untuk topik yang fokus dan spesifik. Rekomendasi: 1-2 modul."
+                    }
+                    {formData.duration === "2-4 minggu" && 
+                      "Kursus yang dapat diselesaikan dalam 2-4 minggu dengan belajar 1-2 jam per hari. Memberikan waktu cukup untuk praktik dan pemahaman mendalam. Rekomendasi: 2-3 modul."
+                    }
+                    {formData.duration === "4-6 minggu" && 
+                      "Kursus komprehensif yang dapat diselesaikan dalam 4-6 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk eksplorasi lebih dalam. Rekomendasi: 3-4 modul."
+                    }
+                    {formData.duration === "6-8 minggu" && 
+                      "Kursus mendalam yang dapat diselesaikan dalam 6-8 minggu dengan belajar 1 jam per hari. Cocok untuk topik yang luas dan kompleks. Rekomendasi: 4-5 modul."
+                    }
+                    {formData.duration === "8-12 minggu" && 
+                      "Kursus yang dapat diselesaikan dalam 8-12 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk penguasaan materi lebih mendalam. Rekomendasi: 5 modul."
+                    }
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

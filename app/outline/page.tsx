@@ -317,6 +317,24 @@ export default function OutlinePage() {
                           <SelectItem value="Lanjutan">Lanjutan</SelectItem>
                         </SelectContent>
                       </Select>
+                      {formData.tingkat && (
+                        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-800 font-medium mb-1">
+                            {formData.tingkat}
+                          </p>
+                          <p className="text-xs text-blue-700 leading-relaxed">
+                            {formData.tingkat === "Pemula" && 
+                              "Kursus ini cocok untuk pemula yang belum memiliki pengalaman sama sekali dalam topik ini. Akan dimulai dari konsep paling dasar, dengan penjelasan yang detail."
+                            }
+                            {formData.tingkat === "Menengah" && 
+                              "Kursus ini ditujukan untuk peserta yang sudah memahami konsep dasar dan ingin meningkatkan keterampilan mereka. Akan membahas topik yang lebih kompleks dari tingkat sebelumnya."
+                            }
+                            {formData.tingkat === "Lanjutan" && 
+                              "Kursus ini untuk peserta yang sudah mahir dan ingin mendalami topik pembelajaran lebih dalam. Akan membahas topik materi yang lebih kompleks dari tingkat sebelumnya."
+                            }
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="relative">
                       <Label htmlFor="durasi" className="flex items-center gap-2"><Clock className="w-5 h-5 text-blue-600" /> Estimasi Durasi</Label>
@@ -327,15 +345,35 @@ export default function OutlinePage() {
                         <SelectContent className="z-[10003]">
                           <SelectItem value="1-2 minggu">1-2 minggu</SelectItem>
                           <SelectItem value="2-4 minggu">2-4 minggu</SelectItem>
-                          <SelectItem value="1-2 bulan">1-2 bulan</SelectItem>
-                          <SelectItem value="2-3 bulan">2-3 bulan</SelectItem>
-                          <SelectItem value="3-6 bulan">3-6 bulan</SelectItem>
+                          <SelectItem value="4-6 minggu">4-6 minggu</SelectItem>
+                          <SelectItem value="6-8 minggu">6-8 minggu</SelectItem>
+                          <SelectItem value="8-12 minggu">8-12 minggu</SelectItem>
                         </SelectContent>
                       </Select>
+                      {formData.durasi && (
+                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <p className="text-sm text-green-800 font-medium mb-1">
+                            Estimasi Waktu Belajar
+                          </p>
+                          <p className="text-xs text-green-700 leading-relaxed">
+                            {formData.durasi === "1-2 minggu" && 
+                              "Kursus intensif yang dapat diselesaikan dalam 1-2 minggu dengan belajar 2-3 jam per hari. Cocok untuk topik yang fokus dan spesifik. Rekomendasi: 1-2 modul."
+                            }
+                            {formData.durasi === "2-4 minggu" && 
+                              "Kursus yang dapat diselesaikan dalam 2-4 minggu dengan belajar 1-2 jam per hari. Memberikan waktu cukup untuk praktik dan pemahaman mendalam. Rekomendasi: 2-3 modul."
+                            }
+                            {formData.durasi === "4-6 minggu" && 
+                              "Kursus komprehensif yang dapat diselesaikan dalam 4-6 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk eksplorasi lebih dalam. Rekomendasi: 3-4 modul."
+                            }
+                            {formData.durasi === "6-8 minggu" && 
+                              "Kursus mendalam yang dapat diselesaikan dalam 6-8 minggu dengan belajar 1 jam per hari. Cocok untuk topik yang luas dan kompleks. Rekomendasi: 4-5 modul."
+                            }
+                            {formData.durasi === "8-12 minggu" && 
+                              "Kursus yang dapat diselesaikan dalam 8-12 minggu dengan belajar 1 jam per hari. Memberikan waktu untuk penguasaan materi lebih mendalam. Rekomendasi: 5 modul."
+                            }
+                          </p>
                     </div>
-                    <div>
-                      <Label htmlFor="bahasa" className="flex items-center gap-2"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</Label>
-                      <Input id="bahasa" placeholder="Contoh: Indonesia" value={formData.bahasa} onChange={e => handleInputChange("bahasa", e.target.value)} className="mt-1" />
+                      )}
                     </div>
                     <div className="relative">
                       <Label htmlFor="jumlah_modul" className="flex items-center gap-2"><ListOrdered className="w-5 h-5 text-blue-600" /> Jumlah Modul</Label>
@@ -380,6 +418,10 @@ export default function OutlinePage() {
                     <p className="text-xs text-muted-foreground mt-1">
                       * Deskripsi topik harus detail dan spesifik untuk menghasilkan outline yang berkualitas
                     </p>
+                  </div>
+                  <div className="mt-4">
+                    <Label htmlFor="bahasa" className="flex items-center gap-2"><Globe className="w-5 h-5 text-blue-600" /> Bahasa</Label>
+                    <Input id="bahasa" placeholder="Contoh: Indonesia" value={formData.bahasa} onChange={e => handleInputChange("bahasa", e.target.value)} className="mt-1" />
                   </div>
                   <Button
                     onClick={handleGenerateOutline}
