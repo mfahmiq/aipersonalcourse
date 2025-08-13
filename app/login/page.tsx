@@ -217,7 +217,7 @@ export default function LoginPage() {
                     className="text-sm text-primary hover:text-primary/90 p-0 h-auto"
                     onClick={() => setIsForgotPassword(true)}
                   >
-                    Lupa password?
+                    Lupa kata sandi?
                   </Button>
                 </div>
 
