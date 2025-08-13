@@ -197,12 +197,12 @@ export default function LoginPage() {
 
                 <div>
                   <Label htmlFor="password" className="text-sm font-medium text-foreground">
-                    Kata Sandi
+                    Password
                   </Label>
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Masukkan kata sandi Anda"
+                    placeholder="Masukkan password Anda"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="mt-1 h-12 border-border focus:border-primary"
@@ -217,7 +217,7 @@ export default function LoginPage() {
                     className="text-sm text-primary hover:text-primary/90 p-0 h-auto"
                     onClick={() => setIsForgotPassword(true)}
                   >
-                    Lupa kata sandi?
+                    Lupa password?
                   </Button>
                 </div>
 

@@ -155,7 +155,7 @@ export default function SettingsPage() {
               />
             </div>
             <div className="rounded-xl border border-border bg-muted p-5 flex flex-col gap-2 shadow-sm">
-              <label className="block text-sm font-semibold text-foreground mb-1">Kata Sandi Baru</label>
+                              <label className="block text-sm font-semibold text-foreground mb-1">Password Baru</label>
               <input
                 type="password"
                 className="transition-all focus:ring-2 focus:ring-primary focus:border-primary border border-border bg-background rounded-lg px-3 py-2 text-base text-foreground placeholder:text-muted-foreground outline-none"

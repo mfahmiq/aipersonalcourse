@@ -41,7 +41,7 @@ export default function RegisterPage() {
     setSuccess(false)
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Kata sandi tidak cocok");
+      setError("Password tidak cocok");
       setIsLoading(false);
       return;
     }
@@ -214,13 +214,13 @@ export default function RegisterPage() {
 
             <div>
               <Label htmlFor="password" className="text-sm font-medium text-foreground">
-                Kata Sandi
+                Password
               </Label>
               <Input
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Buat kata sandi"
+                placeholder="Buat password"
                 value={formData.password}
                 onChange={handleInputChange}
                 className="mt-1 h-12 border-border focus:border-primary"
@@ -233,13 +233,13 @@ export default function RegisterPage() {
 
             <div>
               <Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground">
-                Konfirmasi Kata Sandi
+                Konfirmasi Password
               </Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
-                placeholder="Konfirmasi kata sandi"
+                placeholder="Konfirmasi password"
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
                 className="mt-1 h-12 border-border focus:border-primary"
