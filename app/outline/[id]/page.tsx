@@ -678,7 +678,7 @@ export default function ViewOutlinePage() {
             className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50"
             onClick={() => setShowContinueModal(true)}
           >
-            Lanjutkan ke Tingkat Berikutnya
+            Lanjutkan Level
           </Button>
           <Button variant="outline" size="sm" className="gap-1 border-border text-foreground hover:bg-accent/50 hover:text-accent-foreground hover:border-primary/50" onClick={handleEditClick}>
             <Edit className="h-4 w-4" />
@@ -1089,7 +1089,7 @@ export default function ViewOutlinePage() {
           <div className="fixed inset-0 w-screen h-screen bg-black bg-opacity-40 flex flex-col items-center justify-center" style={{zIndex: 1000000}}>
             <div className="bg-background border rounded-2xl shadow-2xl p-0 w-full max-w-xl overflow-hidden">
               <div className="flex items-center justify-between px-6 py-4 border-b">
-                <h3 className="text-lg font-semibold">Lanjutkan ke Tingkat Berikutnya</h3>
+                <h3 className="text-lg font-semibold">Lanjutkan Level</h3>
                 <button className="text-muted-foreground hover:text-foreground" onClick={() => setShowContinueModal(false)}>
                   <X className="w-5 h-5" />
                 </button>
