@@ -240,37 +240,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex justify-end sm:flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full sm:w-auto min-h-[44px] border-border hover:border-primary/50 text-sm"
-                        onClick={async () => {
-                          // Ambil lesson pertama dari kursus berdasarkan urutan modul dan materi
-                            const { data: firstLesson, error } = await supabase
-                            .from("materi")
-                              .select("id")
-                            .eq("kursus_id", course.id)
-                            .order("nomor_modul", { ascending: true })
-                            .order("nomor_materi", { ascending: true })
-                              .limit(1)
-                              .single();
-                            if (error || !firstLesson) {
-                              alert("Tidak dapat menemukan lesson pertama untuk course ini.");
-                              return;
-                            }
-                            router.push(`/course/${course.id}/learn/${firstLesson.id}`);
-                        }}
-                      >
-                        {(() => {
-                          const totalLessons = course.jumlah_materi ?? 0;
-                          const completedLessons = Array.isArray(course.materi_selesai) ? course.materi_selesai.length : 0;
-                          const percent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-                          const displayPercent = Math.min(percent, 100);
-                          return displayPercent === 100 ? "Tinjau" : "Lanjutkan";
-                        })()}
-                      </Button>
-                    </div>
+
                   </div>
                 </CardContent>
               </Card>

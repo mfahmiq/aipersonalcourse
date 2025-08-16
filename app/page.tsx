@@ -76,13 +76,7 @@ export default function Home() {
                 Buat outline kursus, konten, dan dapatkan bantuan AI untuk menguasai topik apapun secara efisien.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Link href="/register">
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 text-lg group">
-                    Mulai Belajar
-                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
+              <div className="flex justify-center items-center">
                 <motion.div
                   animate={{
                     scale: [1, 1.05, 1],
